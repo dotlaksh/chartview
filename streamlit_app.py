@@ -99,21 +99,14 @@ def load_chart_data(symbol):
 
 def create_chart(chart_data, name, symbol, current_price, volume, daily_change, pivot_points):
     if chart_data is not None:
-        chart_height = 700
+        chart_height = 500
         chart = StreamlitChart(height=chart_height)
 
         change_color = '#00ff55' if daily_change >= 0 else '#ed4807'
         change_symbol = '▲' if daily_change >= 0 else '▼'
         
         # Display stock information and pivot points 
-        pivot_info = ""
-        if pivot_points:
-            pivot_info = f"""<br/>
-            <div style='font-size: 12px; margin-top: 5px;'>
-                <span style='color: #FFD700;'>PP: {pivot_points['P']}</span> | 
-                <span style='color: #00ff55;'>R1: {pivot_points['R1']} | R2: {pivot_points['R2']} | R3: {pivot_points['R3']}</span> | 
-                <span style='color: #ed4807;'>S1: {pivot_points['S1']} | S2: {pivot_points['S2']} | S3: {pivot_points['S3']}</span>
-            </div>"""
+       
         
         st.markdown(f"""
         <div style='padding:10px; background-color: #1E222D; border-radius: 5px;'>
@@ -122,7 +115,6 @@ def create_chart(chart_data, name, symbol, current_price, volume, daily_change, 
             <span style='color: #00ff55;'>₹{current_price:.2f}</span> | 
             <span style='color: {change_color};'>{change_symbol} {abs(daily_change):.2f}%</span> | 
             Vol: {volume:,.0f}
-            {pivot_info}
         </div>
         """, unsafe_allow_html=True)
 
@@ -146,44 +138,37 @@ def create_chart(chart_data, name, symbol, current_price, volume, daily_change, 
         if pivot_points:
             # Add pivot point and levels using different colors
             chart.horizontal_line(pivot_points['P'], 
-                                color='#ffffff', 
+                                color='#227cf4', 
                                 width=1,  # changed from line_width
-                                style='solid',  # changed from line_style
-                                text='PP')
+                                style='solid')
             
             # Resistance levels in green
             chart.horizontal_line(pivot_points['R1'], 
                                 color='#ed4807', 
                                 width=1, 
-                                style='dashed', 
-                                text='R1')
+                                style='dashed')
             chart.horizontal_line(pivot_points['R2'], 
                                 color='#ed4807', 
                                 width=1, 
-                                style='dashed', 
-                                text='R2')
+                                style='dashed')
             chart.horizontal_line(pivot_points['R3'], 
                                 color='#ed4807', 
                                 width=1, 
-                                style='dashed', 
-                                text='R3')
+                                style='dashed')
             
             # Support levels in red
             chart.horizontal_line(pivot_points['S1'], 
                                 color='#00ff55', 
                                 width=1, 
-                                style='dashed', 
-                                text='S1')
+                                style='dashed')
             chart.horizontal_line(pivot_points['S2'], 
                                 color='#00ff55', 
                                 width=1, 
-                                style='dashed', 
-                                text='S2')
+                                style='dashed')
             chart.horizontal_line(pivot_points['S3'], 
                                 color='#00ff55', 
                                 width=1, 
-                                style='dashed', 
-                                text='S3')
+                                style='dashed')
 
         # Set up the volume chart        
         chart.volume_config(
