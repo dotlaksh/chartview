@@ -35,7 +35,7 @@ def get_stocks_from_table(table_name):
 def load_chart_data(symbol):
     ticker = f"{symbol}.NS"
     try:
-        df = yf.download(ticker, period='3mo', interval='1d')
+        df = yf.download(ticker, period='ytd', interval='1d')
         df.reset_index(inplace=True)
         
         if not df.empty:
@@ -62,7 +62,7 @@ def load_chart_data(symbol):
 def create_chart(chart_data, name, symbol, current_price, volume, daily_change):
     if chart_data is not None:
         # Set a default height for the chart
-        chart_height = 500  # Increased height for better visibility
+        chart_height = 600  # Increased height for better visibility
 
         chart = StreamlitChart(height=chart_height)  # Specify the height here
 
@@ -111,17 +111,17 @@ def create_chart(chart_data, name, symbol, current_price, volume, daily_change):
     return None
 
 # Page setup
-st.set_page_config(layout="wide")
+st.set_page_config(layout="wide", page_title="ChartView 1.0")
 
-# Table selection using selectbox
-tables = get_tables()
-col1, col2 = st.columns([1, 2])
-with col1:
-    selected_table = st.selectbox("Select a table:", tables, key='table_selector')
-
-# Initialize session state for pagination
+# Initialize session states
 if 'current_page' not in st.session_state:
     st.session_state.current_page = 1
+
+# Move table selection to sidebar
+with st.sidebar:
+    st.title("Table Selection")
+    tables = get_tables()
+    selected_table = st.selectbox("Select a table:", tables, key='table_selector')
 
 # Reset page when table changes
 if 'previous_table' not in st.session_state:
@@ -133,9 +133,23 @@ if st.session_state.previous_table != selected_table:
 # Get stocks data and display charts
 if selected_table:
     stocks_df = get_stocks_from_table(selected_table)
-
-    CHARTS_PER_PAGE = 10
+    CHARTS_PER_PAGE = 2
     total_pages = math.ceil(len(stocks_df) / CHARTS_PER_PAGE)
+
+    # Pagination controls at the top
+    col1, col2 = st.columns([1, 1])
+    
+    with col1:
+        if st.button("← Previous", key='prev'):
+            if st.session_state.current_page > 1:
+                st.session_state.current_page -= 1
+                st.rerun()
+
+    with col2:
+        if st.button("Next →", key='next'):
+            if st.session_state.current_page < total_pages:
+                st.session_state.current_page += 1
+                st.rerun()
 
     # Determine start and end indices for pagination
     start_idx = (st.session_state.current_page - 1) * CHARTS_PER_PAGE
@@ -143,7 +157,7 @@ if selected_table:
 
     # Display charts in a loop
     for i in range(start_idx, end_idx, 2):
-        col1, col2 = st.columns([1, 1], gap='small')
+        col1, col2 = st.columns([1, 1], gap='large')
 
         # First chart
         with col1:
@@ -167,16 +181,3 @@ if selected_table:
                         chart = create_chart(chart_data, name, symbol, current_price, volume, daily_change)
                         if chart:
                             chart.load()
-
-    # Pagination controls at the bottom
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col1:
-        if st.button("← Previous", key='prev') and st.session_state.current_page > 1:
-            st.session_state.current_page -= 1
-
-    with col2:
-        st.write(f"Page {st.session_state.current_page} of {total_pages} | Total Stocks: {len(stocks_df)}")
-
-    with col3:
-        if st.button("Next →", key='next') and st.session_state.current_page < total_pages:
-            st.session_state.current_page += 1
