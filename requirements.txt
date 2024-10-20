@@ -2,4 +2,3 @@ streamlit
 pandas
 yfinance
 lightweight-charts
-sqlite3  # Note: sqlite3 is included with Python standard library, not needed in requirements.txt
