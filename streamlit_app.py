@@ -120,10 +120,8 @@ def create_chart(chart_data, name, symbol, current_price, volume, daily_change, 
         st.markdown(f"""
         <div class="stock-card">
             <div class="stock-header">
-                <span class="stock-name">{name}</span>
-                <span class="metric-value">₹{current_price:.2f}</span>
-                <span class="metric-value" style='color: {change_color};'>{change_symbol} {abs(daily_change):.2f}%</span>
-                <span class="metric-value">{volume:,.0f}</span>
+                <span class="stock-name">{symbol} | ₹{current_price:.2f} | {volume:,.0f} 
+                <span style='color: {change_color};'>| {change_symbol} {abs(daily_change):.2f}% </span></span>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -167,6 +165,7 @@ def create_chart(chart_data, name, symbol, current_price, volume, daily_change, 
         chart.time_scale(right_offset=5, min_bar_spacing=5)
         chart.grid(vert_enabled=False, horz_enabled=False)
         chart.set(chart_data)
+        
         return chart
     return None
 
@@ -187,7 +186,6 @@ st.markdown("""
     .stock-card {
         background-color: #1E222D;
         padding: 10px;
-        border-radius: 10px;
     }
     .stock-header {
         display: flex;
@@ -196,7 +194,7 @@ st.markdown("""
         margin-bottom: 10px;
     }
     .stock-name {
-        font-size: 14px;
+        font-size: 18px;
         font-weight: bold;
         color: #ffffff;
     }
