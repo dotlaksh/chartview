@@ -1,4 +1,4 @@
-# Stock Chart Dashboard
+# ChartView Dashboard
 
 Welcome to the Stock Chart Dashboard! This Streamlit application allows users to view and analyze stock data from an SQLite database, utilizing real-time data from Yahoo Finance. The app displays interactive charts for various stocks, along with important stock metrics.
 
