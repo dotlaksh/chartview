@@ -111,7 +111,7 @@ def load_chart_data(symbol):
 
 def create_chart(chart_data, name, symbol, current_price, volume, daily_change, pivot_points, industry):
     if chart_data is not None:
-        chart_height = 350
+        chart_height = 450
         chart = StreamlitChart(height=chart_height)
 
         change_color = '#00ff55' if daily_change >= 0 else '#ed4807'
@@ -124,7 +124,6 @@ def create_chart(chart_data, name, symbol, current_price, volume, daily_change, 
                 <span class="metric-value">₹{current_price:.2f}</span>
                 <span class="metric-value" style='color: {change_color};'>{change_symbol} {abs(daily_change):.2f}%</span>
                 <span class="metric-value">{volume:,.0f}</span>
-                <span class="industry-tag">{industry}</span>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -165,7 +164,7 @@ def create_chart(chart_data, name, symbol, current_price, volume, daily_change, 
             horz_style='dotted'
         )
         
-        chart.time_scale(right_offset=5, min_bar_spacing=10)
+        chart.time_scale(right_offset=5, min_bar_spacing=5)
         chart.grid(vert_enabled=False, horz_enabled=False)
         chart.set(chart_data)
         return chart
@@ -187,15 +186,8 @@ st.markdown("""
     }
     .stock-card {
         background-color: #1E222D;
-        padding: 15px;
+        padding: 10px;
         border-radius: 10px;
-        margin-bottom: 15px;
-        border: 1px solid #2D3748;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        transition: transform 0.2s ease-in-out;
-    }
-    .stock-card:hover {
-        transform: scale(1.02);
     }
     .stock-header {
         display: flex;
@@ -204,7 +196,7 @@ st.markdown("""
         margin-bottom: 10px;
     }
     .stock-name {
-        font-size: 18px;
+        font-size: 14px;
         font-weight: bold;
         color: #ffffff;
     }
@@ -325,7 +317,7 @@ stocks_df = get_stocks_by_industry(selected_industry, search_term)
 # Display total results
 st.markdown(f"### Showing {len(stocks_df)} stocks in {selected_industry}")
 
-CHARTS_PER_PAGE = 10
+CHARTS_PER_PAGE = 3
 total_pages = math.ceil(len(stocks_df) / CHARTS_PER_PAGE)
 
 # Pagination controls
