@@ -164,34 +164,45 @@ def load_chart_data(symbol, time_period='ytd', interval='1d'):
         if not df.empty:
             current_month = datetime.now().strftime('%Y-%m')
             prev_month = (datetime.now().replace(day=1) - timedelta(days=1)).strftime('%Y-%m')
+            
+            # Ensure data is properly formatted
+            df['Date'] = pd.to_datetime(df['Date'])
+            
+            # Handle potential multi-dimensional arrays
+            for col in ['Open', 'High', 'Low', 'Close', 'Volume']:
+                if isinstance(df[col], pd.Series):
+                    df[col] = df[col].values.flatten()
+            
             prev_month_data = df[df['Date'].dt.strftime('%Y-%m') == prev_month]
             
             if len(prev_month_data) > 0:
-                monthly_high = prev_month_data['High'].max()
-                monthly_low = prev_month_data['Low'].min()
-                monthly_close = prev_month_data['Close'].iloc[-1]
+                monthly_high = float(prev_month_data['High'].max())
+                monthly_low = float(prev_month_data['Low'].min())
+                monthly_close = float(prev_month_data['Close'].iloc[-1])
                 pivot_points = calculate_pivot_points(monthly_high, monthly_low, monthly_close)
             else:
                 pivot_points = None
 
             chart_data = pd.DataFrame({
                 "time": df["Date"].dt.strftime("%Y-%m-%d"),
-                "open": df["Open"],
-                "high": df["High"],
-                "low": df["Low"],
-                "close": df["Close"],
-                "volume": df["Volume"]
+                "open": df["Open"].astype(float),
+                "high": df["High"].astype(float),
+                "low": df["Low"].astype(float),
+                "close": df["Close"].astype(float),
+                "volume": df["Volume"].astype(float)
             })
             
-            current_price = df['Close'].iloc[-1]
-            prev_price = df['Close'].iloc[-2]
+            current_price = float(df['Close'].iloc[-1])
+            prev_price = float(df['Close'].iloc[-2])
             daily_change = ((current_price - prev_price) / prev_price) * 100
+            volume = float(df['Volume'].iloc[-1])
             
-            return chart_data, current_price, df['Volume'].iloc[-1], daily_change, pivot_points
+            return chart_data, current_price, volume, daily_change, pivot_points
         return None, None, None, None, None
     except Exception as e:
         print(f"Error loading data for {symbol}: {e}")
         return None, None, None, None, None
+    
 def create_chart(chart_data, name, symbol, current_price, volume, daily_change, pivot_points, industry):
     if chart_data is not None:
         chart_height = 450
