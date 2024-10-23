@@ -46,18 +46,18 @@ def validate_period_interval(period, interval):
             return '5Y'
     return period
 
-# Modified load_chart_data function to handle different intervals
 @st.cache_data
 def load_chart_data(symbol, time_period='ytd', interval='1d'):
     ticker = f"{symbol}.NS"
     try:
         # First attempt with specified period
-        df = yf.download(ticker, period=time_period, interval=interval)
+        df = yf.download(ticker, period=time_period, interval=interval, progress=False)
         
         # If data is empty or insufficient, try with 'max' period
         if df.empty or len(df) < 2:
-            df = yf.download(ticker, period='max', interval=interval)
+            df = yf.download(ticker, period='max', interval=interval, progress=False)
             if df.empty or len(df) < 2:
+                st.error(f"No data available for {symbol}. The stock might be delisted or temporarily unavailable.")
                 return None, None, None, None, None
         
         df.reset_index(inplace=True)
@@ -91,109 +91,21 @@ def load_chart_data(symbol, time_period='ytd', interval='1d'):
             return chart_data, current_price, df['Volume'].iloc[-1], daily_change, pivot_points
         return None, None, None, None, None
     except Exception as e:
-        print(f"Error loading data for {symbol}: {e}")
-        return None, None, None, None, None
-@st.cache_data
-def get_industries():
-    with get_db_connection() as conn:
-        query = "SELECT DISTINCT industry FROM nse WHERE industry IS NOT NULL ORDER BY industry;"
-        industries = pd.read_sql_query(query, conn)
-    return ['All Industries'] + industries['industry'].tolist()
-
-@st.cache_data
-def get_stocks_by_industry(industry, search_term=''):
-    with get_db_connection() as conn:
-        if industry == 'All Industries':
-            query = """
-                SELECT symbol, comp_name, industry 
-                FROM nse 
-                WHERE industry IS NOT NULL 
-                ORDER BY comp_name;
-            """
+        error_message = str(e)
+        if "JSONDecodeError" in error_message or "YFTzMissingError" in error_message:
+            st.warning(f"Unable to fetch data for {symbol}. The stock might be temporarily unavailable or has limited trading history.")
+        elif "Invalid ticker" in error_message:
+            st.error(f"Invalid stock symbol: {symbol}")
         else:
-            query = f"""
-                SELECT symbol, comp_name, industry 
-                FROM nse 
-                WHERE industry = '{industry}' 
-                ORDER BY comp_name;
-            """
-        stocks_df = pd.read_sql_query(query, conn)
-        
-        if search_term:
-            stocks_df = stocks_df[
-                stocks_df['comp_name'].str.contains(search_term, case=False) | 
-                stocks_df['symbol'].str.contains(search_term, case=False)
-            ]
-    return stocks_df
-
-# Function for pivot points calculation
-def calculate_pivot_points(high, low, close):
-    """Calculate monthly pivot points and support/resistance levels"""
-    pivot = (high + low + close) / 3
-    r1 = 2 * pivot - low
-    s1 = 2 * pivot - high
-    r2 = pivot + (high - low)
-    s2 = pivot - (high - low)
-    r3 = high + 2 * (pivot - low)
-    s3 = low - 2 * (high - pivot)
-    
-    return {
-        'P': round(pivot, 2),
-        'R1': round(r1, 2),
-        'R2': round(r2, 2),
-        'R3': round(r3, 2),
-        'S1': round(s1, 2),
-        'S2': round(s2, 2),
-        'S3': round(s3, 2)
-    }
-@st.cache_data
-def load_chart_data(symbol, time_period='ytd', interval='1d'):
-    ticker = f"{symbol}.NS"
-    try:
-        # First attempt with specified period
-        df = yf.download(ticker, period=time_period, interval=interval)
-        
-        # If data is empty or insufficient, try with 'max' period
-        if df.empty or len(df) < 2:
-            df = yf.download(ticker, period='max', interval=interval)
-            if df.empty or len(df) < 2:
-                return None, None, None, None, None
-        
-        df.reset_index(inplace=True)
-        
-        if not df.empty:
-            current_month = datetime.now().strftime('%Y-%m')
-            prev_month = (datetime.now().replace(day=1) - timedelta(days=1)).strftime('%Y-%m')
-            prev_month_data = df[df['Date'].dt.strftime('%Y-%m') == prev_month]
-            
-            if len(prev_month_data) > 0:
-                monthly_high = prev_month_data['High'].max()
-                monthly_low = prev_month_data['Low'].min()
-                monthly_close = prev_month_data['Close'].iloc[-1]
-                pivot_points = calculate_pivot_points(monthly_high, monthly_low, monthly_close)
-            else:
-                pivot_points = None
-
-            chart_data = pd.DataFrame({
-                "time": df["Date"].dt.strftime("%Y-%m-%d"),
-                "open": df["Open"],
-                "high": df["High"],
-                "low": df["Low"],
-                "close": df["Close"],
-                "volume": df["Volume"]
-            })
-            
-            current_price = df['Close'].iloc[-1]
-            prev_price = df['Close'].iloc[-2]
-            daily_change = ((current_price - prev_price) / prev_price) * 100
-            
-            return chart_data, current_price, df['Volume'].iloc[-1], daily_change, pivot_points
+            st.error(f"Error loading data for {symbol}: {error_message}")
         return None, None, None, None, None
-    except Exception as e:
-        print(f"Error loading data for {symbol}: {e}")
-        return None, None, None, None, None
+
 def create_chart(chart_data, name, symbol, current_price, volume, daily_change, pivot_points, industry):
-    if chart_data is not None:
+    if chart_data is None:
+        st.info(f"No chart data available for {symbol}")
+        return None
+        
+    try:
         chart_height = 450
         chart = StreamlitChart(height=chart_height)
 
@@ -250,7 +162,9 @@ def create_chart(chart_data, name, symbol, current_price, volume, daily_change, 
         chart.set(chart_data)
         
         return chart
-    return None
+    except Exception as e:
+        st.error(f"Error creating chart for {symbol}: {str(e)}")
+        return None
 
 # Page setup
 st.set_page_config(layout="wide", page_title="StockView Pro", page_icon="📈")
