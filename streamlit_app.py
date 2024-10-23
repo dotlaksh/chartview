@@ -46,19 +46,27 @@ def validate_period_interval(period, interval):
             return '5Y'
     return period
 
-# Modified load_chart_data function to handle different intervals
 @st.cache_data
 def load_chart_data(symbol, time_period='ytd', interval='1d'):
-    ticker = f"{symbol}.NS"
+    # Remove .NS suffix if it exists
+    if '.NS' in symbol:
+        ticker = symbol
+    else:
+        ticker = f"{symbol}.NS"
+    
     try:
-        # First attempt with specified period
-        df = yf.download(ticker, period='ytd', interval='1d')
+        # First attempt with specified period and interval
+        df = yf.download(ticker, period=time_period, interval=interval)
         
         # If data is empty or insufficient, try with 'max' period
         if df.empty or len(df) < 2:
             df = yf.download(ticker, period='max', interval=interval)
             if df.empty or len(df) < 2:
-                return None, None, None, None, None
+                # Try without .NS suffix as a fallback
+                ticker_without_ns = symbol.replace('.NS', '')
+                df = yf.download(ticker_without_ns, period=time_period, interval=interval)
+                if df.empty or len(df) < 2:
+                    return None, None, None, None, None
         
         df.reset_index(inplace=True)
         
@@ -92,7 +100,11 @@ def load_chart_data(symbol, time_period='ytd', interval='1d'):
         return None, None, None, None, None
     except Exception as e:
         print(f"Error loading data for {symbol}: {e}")
+        # Add debug logging
+        st.write(f"Debug - Symbol: {symbol}, Ticker attempted: {ticker}")
+        st.write(f"Debug - Error message: {str(e)}")
         return None, None, None, None, None
+        
 @st.cache_data
 def get_industries():
     with get_db_connection() as conn:
