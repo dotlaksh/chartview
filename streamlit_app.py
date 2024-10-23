@@ -46,6 +46,106 @@ def validate_period_interval(period, interval):
             return '5Y'
     return period
 
+# Modified load_chart_data function to handle different intervals
+@st.cache_data
+def load_chart_data(symbol, time_period='ytd', interval='1d'):
+    ticker = f"{symbol}.NS"
+    try:
+        # First attempt with specified period
+        df = yf.download(ticker, period='ytd', interval='1d')
+        
+        # If data is empty or insufficient, try with 'max' period
+        if df.empty or len(df) < 2:
+            df = yf.download(ticker, period='max', interval=interval)
+            if df.empty or len(df) < 2:
+                return None, None, None, None, None
+        
+        df.reset_index(inplace=True)
+        
+        if not df.empty:
+            current_month = datetime.now().strftime('%Y-%m')
+            prev_month = (datetime.now().replace(day=1) - timedelta(days=1)).strftime('%Y-%m')
+            prev_month_data = df[df['Date'].dt.strftime('%Y-%m') == prev_month]
+            
+            if len(prev_month_data) > 0:
+                monthly_high = prev_month_data['High'].max()
+                monthly_low = prev_month_data['Low'].min()
+                monthly_close = prev_month_data['Close'].iloc[-1]
+                pivot_points = calculate_pivot_points(monthly_high, monthly_low, monthly_close)
+            else:
+                pivot_points = None
+
+            chart_data = pd.DataFrame({
+                "time": df["Date"].dt.strftime("%Y-%m-%d"),
+                "open": df["Open"],
+                "high": df["High"],
+                "low": df["Low"],
+                "close": df["Close"],
+                "volume": df["Volume"]
+            })
+            
+            current_price = df['Close'].iloc[-1]
+            prev_price = df['Close'].iloc[-2]
+            daily_change = ((current_price - prev_price) / prev_price) * 100
+            
+            return chart_data, current_price, df['Volume'].iloc[-1], daily_change, pivot_points
+        return None, None, None, None, None
+    except Exception as e:
+        print(f"Error loading data for {symbol}: {e}")
+        return None, None, None, None, None
+@st.cache_data
+def get_industries():
+    with get_db_connection() as conn:
+        query = "SELECT DISTINCT industry FROM nse WHERE industry IS NOT NULL ORDER BY industry;"
+        industries = pd.read_sql_query(query, conn)
+    return ['All Industries'] + industries['industry'].tolist()
+
+@st.cache_data
+def get_stocks_by_industry(industry, search_term=''):
+    with get_db_connection() as conn:
+        if industry == 'All Industries':
+            query = """
+                SELECT symbol, comp_name, industry 
+                FROM nse 
+                WHERE industry IS NOT NULL 
+                ORDER BY comp_name;
+            """
+        else:
+            query = f"""
+                SELECT symbol, comp_name, industry 
+                FROM nse 
+                WHERE industry = '{industry}' 
+                ORDER BY comp_name;
+            """
+        stocks_df = pd.read_sql_query(query, conn)
+        
+        if search_term:
+            stocks_df = stocks_df[
+                stocks_df['comp_name'].str.contains(search_term, case=False) | 
+                stocks_df['symbol'].str.contains(search_term, case=False)
+            ]
+    return stocks_df
+
+# Function for pivot points calculation
+def calculate_pivot_points(high, low, close):
+    """Calculate monthly pivot points and support/resistance levels"""
+    pivot = (high + low + close) / 3
+    r1 = 2 * pivot - low
+    s1 = 2 * pivot - high
+    r2 = pivot + (high - low)
+    s2 = pivot - (high - low)
+    r3 = high + 2 * (pivot - low)
+    s3 = low - 2 * (high - pivot)
+    
+    return {
+        'P': round(pivot, 2),
+        'R1': round(r1, 2),
+        'R2': round(r2, 2),
+        'R3': round(r3, 2),
+        'S1': round(s1, 2),
+        'S2': round(s2, 2),
+        'S3': round(s3, 2)
+    }
 @st.cache_data
 def load_chart_data(symbol, time_period='ytd', interval='1d'):
     ticker = f"{symbol}.NS"
@@ -274,10 +374,6 @@ st.markdown("""
 
     </style>
 """, unsafe_allow_html=True)
-
-
-
-# [Previous code remains the same until the sidebar section]
 
 # Modified sidebar section
 with st.sidebar:
