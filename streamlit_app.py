@@ -316,10 +316,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-
-# [Previous code remains the same until the sidebar section]
-
-# Modified sidebar section
+# sidebar section
 with st.sidebar:
     st.title("📊 StockView")
     st.markdown("---")
@@ -455,7 +452,7 @@ end_idx = min(start_idx + CHARTS_PER_PAGE, len(stocks_df))
 
 # Display charts in rows of three
 for i in range(start_idx, end_idx, 3):
-    col1, col2, col3 = st.columns([1, 1, 1], gap='small')
+    col1 = st.columns()
     
     # First chart
     with col1:
@@ -477,45 +474,6 @@ for i in range(start_idx, end_idx, 3):
                 else:
                     st.warning(f"No data available for {symbol} with selected settings")
 
-    # Second chart
-    with col2:
-        if i + 1 < len(stocks_df):
-            with st.spinner(f"Loading {stocks_df['comp_name'].iloc[i + 1]}..."):
-                symbol = stocks_df['symbol'].iloc[i + 1]
-                name = stocks_df['comp_name'].iloc[i + 1]
-                industry = stocks_df['industry'].iloc[i + 1]
-                chart_data, current_price, volume, daily_change, pivot_points = load_chart_data(
-                    symbol,
-                    TIME_PERIODS[selected_period],
-                    INTERVALS[selected_interval]
-                )
-                if chart_data is not None:
-                    chart = create_chart(chart_data, name, symbol, current_price, volume, 
-                                      daily_change, pivot_points, industry)
-                    if chart:
-                        chart.load()
-                else:
-                    st.warning(f"No data available for {symbol} with selected settings")
-
-    # Third chart
-    with col3:
-        if i + 2 < len(stocks_df):
-            with st.spinner(f"Loading {stocks_df['comp_name'].iloc[i + 2]}..."):
-                symbol = stocks_df['symbol'].iloc[i + 2]
-                name = stocks_df['comp_name'].iloc[i + 2]
-                industry = stocks_df['industry'].iloc[i + 2]
-                chart_data, current_price, volume, daily_change, pivot_points = load_chart_data(
-                    symbol,
-                    TIME_PERIODS[selected_period],
-                    INTERVALS[selected_interval]
-                )
-                if chart_data is not None:
-                    chart = create_chart(chart_data, name, symbol, current_price, volume, 
-                                      daily_change, pivot_points, industry)
-                    if chart:
-                        chart.load()
-                else:
-                    st.warning(f"No data available for {symbol} with selected settings")
 
 # Footer
 st.markdown("---")
