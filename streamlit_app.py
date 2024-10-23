@@ -9,7 +9,21 @@ from datetime import datetime, timedelta
 @st.cache_data
 def load_stock_data():
     try:
-        return pd.read_csv('nse.csv')
+        # Load the CSV file
+        df = pd.read_csv('nse.csv')
+        
+        # Show the column names in the console for debugging
+        print("Available columns:", df.columns.tolist())
+        
+        # If there's only one column, use it as the symbol column
+        if len(df.columns) == 1:
+            df.columns = ['symbol']
+        
+        # If 'symbol' column doesn't exist, rename the first column to 'symbol'
+        if 'symbol' not in df.columns:
+            df = df.rename(columns={df.columns[0]: 'symbol'})
+        
+        return df
     except Exception as e:
         st.error(f"Error loading nse.csv: {e}")
         return pd.DataFrame(columns=['symbol'])
@@ -38,7 +52,7 @@ def load_chart_data(symbol):
             return chart_data, current_price, df['Volume'].iloc[-1], daily_change
         return None, None, None, None
     except Exception as e:
-        print(f"Error loading data: {e}")
+        print(f"Error loading data for {symbol}: {e}")
         return None, None, None, None
 
 def create_chart(chart_data, symbol, current_price, volume, daily_change):
@@ -130,6 +144,10 @@ with st.sidebar:
 
 # Get stocks data and display charts
 stocks_df = load_stock_data()
+
+# Show the available columns in the sidebar for debugging
+with st.sidebar:
+    st.write("Available columns:", stocks_df.columns.tolist())
 
 # Filter stocks based on search term
 if search_term:
