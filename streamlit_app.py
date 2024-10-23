@@ -449,32 +449,26 @@ with st.container():
 # Calculate start and end indices for current page
 start_idx = (st.session_state.current_page - 1) * CHARTS_PER_PAGE
 end_idx = min(start_idx + CHARTS_PER_PAGE, len(stocks_df))
-
-# Display charts in rows of three
-for i in range(start_idx, end_idx, 3):
-    col1 = st.columns()
-    
-    # First chart
-    with col1:
-        if i < len(stocks_df):
-            with st.spinner(f"Loading {stocks_df['comp_name'].iloc[i]}..."):
-                symbol = stocks_df['symbol'].iloc[i]
-                name = stocks_df['comp_name'].iloc[i]
-                industry = stocks_df['industry'].iloc[i]
-                chart_data, current_price, volume, daily_change, pivot_points = load_chart_data(
-                    symbol, 
-                    TIME_PERIODS[selected_period],
-                    INTERVALS[selected_interval]
-                )
-                if chart_data is not None:
-                    chart = create_chart(chart_data, name, symbol, current_price, volume, 
-                                      daily_change, pivot_points, industry)
-                    if chart:
-                        chart.load()
-                else:
-                    st.warning(f"No data available for {symbol} with selected settings")
-
-
+col1 = st.columns()
+#Chart
+with col1:
+    if i < len(stocks_df):
+        with st.spinner(f"Loading {stocks_df['comp_name'].iloc[i]}..."):
+            symbol = stocks_df['symbol'].iloc[i]
+            name = stocks_df['comp_name'].iloc[i]
+            industry = stocks_df['industry'].iloc[i]
+            chart_data, current_price, volume, daily_change, pivot_points = load_chart_data(
+                symbol, 
+                TIME_PERIODS[selected_period],
+                INTERVALS[selected_interval]
+            )
+            if chart_data is not None:
+                chart = create_chart(chart_data, name, symbol, current_price, volume, 
+                                  daily_change, pivot_points, industry)
+                if chart:
+                    chart.load()
+            else:
+                st.warning(f"No data available for {symbol} with selected settings")
 # Footer
 st.markdown("---")
 st.markdown("""
