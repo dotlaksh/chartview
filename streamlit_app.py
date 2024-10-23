@@ -6,6 +6,7 @@ from lightweight_charts.widgets import StreamlitChart
 from contextlib import contextmanager
 import math
 from datetime import datetime, timedelta
+
 # Database connection management
 @contextmanager
 def get_db_connection():
@@ -15,13 +16,117 @@ def get_db_connection():
     finally:
         conn.close()
 
+# Time period and interval mappings
+TIME_PERIODS = {
+    '1M': '1mo',
+    '3M': '3mo',
+    '6M': '6mo',
+    'YTD': 'ytd',
+    '1Y': '1y',
+    '2Y': '2y',
+    '5Y': '5y',
+    'MAX': 'max'
+}
+
+INTERVALS = {
+    'Daily': '1d',
+    'Weekly': '1wk',
+    'Monthly': '1mo'
+}
+
+# Function to validate time period and interval combination
+def validate_period_interval(period, interval):
+    if interval == 'Weekly':
+        valid_periods = ['1Y', '2Y', '5Y', 'MAX']
+        if period not in valid_periods:
+            return '1Y'
+    elif interval == 'Monthly':
+        valid_periods = ['5Y', 'MAX']
+        if period not in valid_periods:
+            return '5Y'
+    return period
+
+# Modified load_chart_data function to handle different intervals
 @st.cache_data
-def get_stocks_from_table():
+def load_chart_data(symbol, time_period='6mo', interval='1d'):
+    ticker = f"{symbol}.NS"
+    try:
+        # First attempt with specified period
+        df = yf.download(ticker, period='6mo', interval='1d')
+        
+        # If data is empty or insufficient, try with 'max' period
+        if df.empty or len(df) < 2:
+            df = yf.download(ticker, period='max', interval=interval)
+            if df.empty or len(df) < 2:
+                return None, None, None, None, None
+        
+        df.reset_index(inplace=True)
+        
+        if not df.empty:
+            current_month = datetime.now().strftime('%Y-%m')
+            prev_month = (datetime.now().replace(day=1) - timedelta(days=1)).strftime('%Y-%m')
+            prev_month_data = df[df['Date'].dt.strftime('%Y-%m') == prev_month]
+            
+            if len(prev_month_data) > 0:
+                monthly_high = prev_month_data['High'].max()
+                monthly_low = prev_month_data['Low'].min()
+                monthly_close = prev_month_data['Close'].iloc[-1]
+                pivot_points = calculate_pivot_points(monthly_high, monthly_low, monthly_close)
+            else:
+                pivot_points = None
+
+            chart_data = pd.DataFrame({
+                "time": df["Date"].dt.strftime("%Y-%m-%d"),
+                "open": df["Open"],
+                "high": df["High"],
+                "low": df["Low"],
+                "close": df["Close"],
+                "volume": df["Volume"]
+            })
+            
+            current_price = df['Close'].iloc[-1]
+            prev_price = df['Close'].iloc[-2]
+            daily_change = ((current_price - prev_price) / prev_price) * 100
+            
+            return chart_data, current_price, df['Volume'].iloc[-1], daily_change, pivot_points
+        return None, None, None, None, None
+    except Exception as e:
+        print(f"Error loading data for {symbol}: {e}")
+        return None, None, None, None, None
+@st.cache_data
+def get_industries():
     with get_db_connection() as conn:
-        query = f"SELECT DISTINCT symbol, stock_name FROM nse ORDER BY symbol;"
+        query = "SELECT DISTINCT industry FROM nse WHERE industry IS NOT NULL ORDER BY industry;"
+        industries = pd.read_sql_query(query, conn)
+    return ['All Industries'] + industries['industry'].tolist()
+
+@st.cache_data
+def get_stocks_by_industry(industry, search_term=''):
+    with get_db_connection() as conn:
+        if industry == 'All Industries':
+            query = """
+                SELECT symbol, comp_name, industry 
+                FROM nse 
+                WHERE industry IS NOT NULL 
+                ORDER BY comp_name;
+            """
+        else:
+            query = f"""
+                SELECT symbol, comp_name, industry 
+                FROM nse 
+                WHERE industry = '{industry}' 
+                ORDER BY comp_name;
+            """
         stocks_df = pd.read_sql_query(query, conn)
+        
+        if search_term:
+            stocks_df = stocks_df[
+                stocks_df['comp_name'].str.contains(search_term, case=False) | 
+                stocks_df['symbol'].str.contains(search_term, case=False)
+            ]
     return stocks_df
 
+# Function for pivot points calculation
 def calculate_pivot_points(high, low, close):
     """Calculate monthly pivot points and support/resistance levels"""
     pivot = (high + low + close) / 3
@@ -41,54 +146,7 @@ def calculate_pivot_points(high, low, close):
         'S2': round(s2, 2),
         'S3': round(s3, 2)
     }
-
-@st.cache_data
-def load_chart_data(symbol):
-    ticker = f"{symbol}.NS"
-    try:
-        # Get data for the current month and previous month
-        end_date = datetime.now()
-        start_date = (end_date - timedelta(days=60)).strftime('%Y-%m-%d')
-        df = yf.download(ticker, period='ytd', interval='1d')
-        df.reset_index(inplace=True)
-        
-        if not df.empty:
-            # Calculate previous month's high, low, close for pivot points
-            current_month = datetime.now().strftime('%Y-%m')
-            prev_month = (datetime.now().replace(day=1) - timedelta(days=1)).strftime('%Y-%m')
-            prev_month_data = df[df['Date'].dt.strftime('%Y-%m') == prev_month]
-            
-            if len(prev_month_data) > 0:
-                monthly_high = prev_month_data['High'].max()
-                monthly_low = prev_month_data['Low'].min()
-                monthly_close = prev_month_data['Close'].iloc[-1]
-                
-                # Calculate pivot points using previous month's data
-                pivot_points = calculate_pivot_points(monthly_high, monthly_low, monthly_close)
-            else:
-                pivot_points = None
-
-            chart_data = pd.DataFrame({
-                "time": df["Date"].dt.strftime("%Y-%m-%d"),
-                "open": df["Open"],
-                "high": df["High"],
-                "low": df["Low"],
-                "close": df["Close"],
-                "volume": df["Volume"]
-            })
-            
-            # Calculate daily percentage change
-            current_price = df['Close'].iloc[-1]
-            prev_price = df['Close'].iloc[-2]
-            daily_change = ((current_price - prev_price) / prev_price) * 100
-            
-            return chart_data, current_price, df['Volume'].iloc[-1], daily_change, pivot_points
-        return None, None, None, None, None
-    except Exception as e:
-        print(f"Error loading data: {e}")
-        return None, None, None, None, None
-
-def create_chart(chart_data, name, symbol, current_price, volume, daily_change, pivot_points):
+def create_chart(chart_data, name, symbol, current_price, volume, daily_change, pivot_points, industry):
     if chart_data is not None:
         chart_height = 450
         chart = StreamlitChart(height=chart_height)
@@ -97,11 +155,11 @@ def create_chart(chart_data, name, symbol, current_price, volume, daily_change, 
         change_symbol = '▲' if daily_change >= 0 else '▼'      
         
         st.markdown(f"""
-        <div class="stock-info">
-            <span style='font-size: 16px; font-weight: bold;'>{name}</span>
-            <span style='color: #00ff55;'>₹{current_price:.2f}</span> | 
-            <span style='color: {change_color};'>{change_symbol} {abs(daily_change):.2f}%</span> | 
-            Vol: {volume:,.0f}
+        <div class="stock-card">
+            <div class="stock-header">
+                <span class="stock-name">{symbol} | ₹{current_price:.2f} | {volume:,.0f} 
+                <span style='color: {change_color};'>| {change_symbol} {abs(daily_change):.2f}% </span></span>
+            </div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -141,108 +199,328 @@ def create_chart(chart_data, name, symbol, current_price, volume, daily_change, 
             horz_style='dotted'
         )
         
-        chart.time_scale(right_offset=5, min_bar_spacing=10)
+        chart.time_scale(right_offset=5, min_bar_spacing=5)
         chart.grid(vert_enabled=False, horz_enabled=False)
         chart.set(chart_data)
+        
         return chart
     return None
 
 # Page setup
-st.set_page_config(layout="wide", page_title="ChartView 2.0", page_icon="📈")
+st.set_page_config(layout="wide", page_title="StockView Pro", page_icon="📈")
 
-# Custom CSS for better styling
+# Enhanced CSS for better styling
 st.markdown("""
     <style>
     .stApp {
         background-color: #0e1117;
         color: #ffffff;
     }
-    .stSelectbox, .stTextInput {
-        background-color: #262730;
+    .sidebar .sidebar-content {
+        background-color: #1E222D;
+        border-right: 1px solid #2D3748;
     }
-    .stButton>button {
-        background-color: #4CAF50;
-        color: white;
-        border-radius: 5px;
-    }
-    .stock-info {
+    .stock-card {
         background-color: #1E222D;
         padding: 10px;
-        border-radius: 5px;
+    }
+    .stock-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
         margin-bottom: 10px;
     }
+    .stock-name {
+        font-size: 16px;
+        font-weight: bold;
+        color: #ffffff;
+    }
+    .stock-symbol {
+        font-size: 14px;
+        color: #A0AEC0;
+        padding: 4px 8px;
+        background-color: #2D3748;
+        border-radius: 4px;
+    }
+    .metric {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .metric-label {
+        font-size: 12px;
+        color: #A0AEC0;
+    }
+    .metric-value {
+        font-size: 14px;
+        font-weight: bold;
+    }
+    .industry-tag {
+        font-size: 12px;
+        color: #718096;
+        padding: 4px 8px;
+        background-color: #2D3748;
+        border-radius: 4px;
+        display: inline-block;
+    }
+    .search-box {
+        background-color: #2D3748;
+        border-radius: 5px;
+        padding: 10px;
+        margin-bottom: 20px;
+    }
+   
+    .stContainer > div {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 15px;
+        flex-wrap: nowrap;
+        margin: 10px 0;
+    }
+    .pagination-button {
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        width: 40px;
+        height: 30px;
+        font-size: 16px;
+        cursor: pointer;
+    }
+    .pagination-button:hover {
+        background-color: #3e8e41;
+    }
+    .page-info {
+        color: #A0AEC0;
+        font-size: 14px;
+        white-space: nowrap;
+    }
+    @media screen and (max-width: 640px) {
+        .stContainer > div {
+            gap: 10px;
+            padding: 0 10px;
+        }
+        .pagination-button {
+            width: 35px;
+            height: 25px;
+            font-size: 14px;
+        }
+        .page-info {
+            font-size: 12px;
+        }
+    }
+ 
+
     </style>
+""", unsafe_allow_html=True)
+
+
+
+# [Previous code remains the same until the sidebar section]
+
+# Modified sidebar section
+with st.sidebar:
+    st.title("📊 StockView")
+    st.markdown("---")
+    
+    # Industry filter
+    if 'previous_industry' not in st.session_state:
+        st.session_state.previous_industry = None
+    
+    industries = get_industries()
+    selected_industry = st.selectbox("🏢 Select Industry", industries)
+    
+    # Time Period and Interval Selection
+    st.markdown("### ⏱️ Chart Settings")
+    
+    # Interval selector
+    selected_interval = st.selectbox(
+        "Select interval:",
+        list(INTERVALS.keys()),
+        index=0  # Default to Daily
+    )
+    
+    # Time period selector with dynamic options based on interval
+    if selected_interval == 'Monthly':
+        period_options = ['5Y', 'MAX']
+        default_index = 0
+    elif selected_interval == 'Weekly':
+        period_options = ['1Y', '2Y', '5Y', 'MAX']
+        default_index = 0
+    else:
+        period_options = list(TIME_PERIODS.keys())
+        default_index = 3  # Default to YTD for daily interval
+    
+    selected_period = st.selectbox(
+        "Select time period:",
+        period_options,
+        index=default_index
+    )
+    
+    # Validate and adjust period if needed
+    selected_period = validate_period_interval(selected_period, selected_interval)
+    
+    if selected_period != st.session_state.get('last_selected_period'):
+        st.session_state.current_page = 1
+        st.session_state['last_selected_period'] = selected_period
+    
+# Reset pagination when industry changes
+    if st.session_state.previous_industry != selected_industry:
+        st.session_state.current_page = 1
+        st.session_state.previous_industry = selected_industry
+    # Enhanced search box with pagination reset
+    if 'previous_search' not in st.session_state:
+        st.session_state.previous_search = ""
+    
+    st.markdown("### 🔍 Stock Search")
+    search_term = st.text_input("Search by name or symbol:", "", key="search_box")
+    
+    # Reset pagination when search changes
+    if st.session_state.previous_search != search_term:
+        st.session_state.current_page = 1
+        st.session_state.previous_search = search_term
+    
+   # Stats display with dynamic industry counts
+    st.markdown("### 📊 Quick Stats")
+    with get_db_connection() as conn:
+        # Total counts
+        total_stocks = pd.read_sql_query("SELECT COUNT(DISTINCT symbol) as count FROM nse;", conn)['count'].iloc[0]
+        total_industries = pd.read_sql_query("SELECT COUNT(DISTINCT industry) as count FROM nse;", conn)['count'].iloc[0]
+        
+        # Industry specific counts
+        if selected_industry != 'All Industries':
+            industry_stocks = pd.read_sql_query(
+                f"SELECT COUNT(DISTINCT symbol) as count FROM nse WHERE industry = '{selected_industry}';", 
+                conn)['count'].iloc[0]
+            display_stocks = industry_stocks
+            industry_text = f"Stocks in {selected_industry}"
+        else:
+            display_stocks = total_stocks
+            industry_text = "Total Stocks"
+    
+    st.markdown(f"""
+        <div style='padding: 10px; background-color: #2D3748; border-radius: 5px;'>
+            <div style='margin-bottom: 10px;'>
+                <div style='color: #A0AEC0; font-size: 12px;'>{industry_text}</div>
+                <div style='font-size: 18px; font-weight: bold;'>{display_stocks}</div>
+            </div>
+            <div>
+                <div style='color: #A0AEC0; font-size: 12px;'>Total Industries</div>
+                <div style='font-size: 18px; font-weight: bold;'>{total_industries}</div>
+            </div>
+        </div>
     """, unsafe_allow_html=True)
 
 # Initialize session states
 if 'current_page' not in st.session_state:
     st.session_state.current_page = 1
 
-# Sidebar
-with st.sidebar:
-    st.title("📊 ChartView 2.0")
-    st.markdown("---")   
-    # Add a search box for stocks
-    search_term = st.text_input("🔍 Search for a stock:", "")
+# Get stocks data
+stocks_df = get_stocks_by_industry(selected_industry, search_term)
 
+# Display total results
+st.markdown(f"### Showing {len(stocks_df)} stocks in {selected_industry}")
 
-    stocks_df = get_stocks_from_table()
-    
-    # Filter stocks based on search term
-    if search_term:
-        stocks_df = stocks_df[stocks_df['stock_name'].str.contains(search_term, case=False) | 
-                              stocks_df['symbol'].str.contains(search_term, case=False)]
-    
-    CHARTS_PER_PAGE = 12
-    total_pages = math.ceil(len(stocks_df) / CHARTS_PER_PAGE)
+CHARTS_PER_PAGE = 3  # Display 9 charts per page (3 rows of 3)
+total_pages = math.ceil(len(stocks_df) / CHARTS_PER_PAGE)
 
-    # Pagination controls
-    col1, col2, col3 = st.columns([1, 3, 1])
-    
+# Pagination controls in a single row using Streamlit container
+with st.container():
+    col1, col2, col3 = st.columns([1, 2, 1], gap="small")
+
+    # 'Previous' button logic
     with col1:
-        if st.button("← Previous", key='prev', disabled=(st.session_state.current_page == 1)):
+        if st.button("← Previous", disabled=(st.session_state.current_page == 1), key='prev_btn'):
             st.session_state.current_page -= 1
-            st.rerun()
+            st.rerun()  # Reload the app to reflect page change
 
+    # Display the current page info
     with col2:
-        st.write(f"Page {st.session_state.current_page} of {total_pages}")
+        st.markdown(
+            f"<div class='page-info'>Page {st.session_state.current_page} of {total_pages}</div>",
+            unsafe_allow_html=True
+        )
 
+    # 'Next' button logic
     with col3:
-        if st.button("Next →", key='next', disabled=(st.session_state.current_page == total_pages)):
+        if st.button("Next →", disabled=(st.session_state.current_page == total_pages), key='next_btn'):
             st.session_state.current_page += 1
-            st.rerun()
+            st.rerun()  # Reload the app to reflect page change
 
-    # Determine start and end indices for pagination
-    start_idx = (st.session_state.current_page - 1) * CHARTS_PER_PAGE
-    end_idx = min(start_idx + CHARTS_PER_PAGE, len(stocks_df))
 
-    # Display charts in a loop
-    for i in range(start_idx, end_idx, 2):
-        col1, col2 = st.columns([1, 1], gap='small')
+# Calculate start and end indices for current page
+start_idx = (st.session_state.current_page - 1) * CHARTS_PER_PAGE
+end_idx = min(start_idx + CHARTS_PER_PAGE, len(stocks_df))
 
-        # First chart
-        with col1:
-            with st.spinner(f"Loading {stocks_df['stock_name'].iloc[i]}..."):
+# Display charts in rows of three
+for i in range(start_idx, end_idx, 3):
+    col1, col2, col3 = st.columns([1, 1, 1], gap='small')
+    
+    # First chart
+    with col1:
+        if i < len(stocks_df):
+            with st.spinner(f"Loading {stocks_df['comp_name'].iloc[i]}..."):
                 symbol = stocks_df['symbol'].iloc[i]
-                name = stocks_df['stock_name'].iloc[i]
-                chart_data, current_price, volume, daily_change, pivot_points = load_chart_data(symbol)
+                name = stocks_df['comp_name'].iloc[i]
+                industry = stocks_df['industry'].iloc[i]
+                chart_data, current_price, volume, daily_change, pivot_points = load_chart_data(
+                    symbol, 
+                    TIME_PERIODS[selected_period],
+                    INTERVALS[selected_interval]
+                )
                 if chart_data is not None:
-                    chart = create_chart(chart_data, name, symbol, current_price, volume, daily_change, pivot_points)
+                    chart = create_chart(chart_data, name, symbol, current_price, volume, 
+                                      daily_change, pivot_points, industry)
                     if chart:
                         chart.load()
+                else:
+                    st.warning(f"No data available for {symbol} with selected settings")
 
-        # Second chart (if available)
-        with col2:
-            if i + 1 < end_idx:
-                with st.spinner(f"Loading {stocks_df['stock_name'].iloc[i + 1]}..."):
-                    symbol = stocks_df['symbol'].iloc[i + 1]
-                    name = stocks_df['stock_name'].iloc[i + 1]
-                    chart_data, current_price, volume, daily_change, pivot_points = load_chart_data(symbol)
-                    if chart_data is not None:
-                        chart = create_chart(chart_data, name, symbol, current_price, volume, daily_change, pivot_points)
-                        if chart:
-                            chart.load()
+    # Second chart
+    with col2:
+        if i + 1 < len(stocks_df):
+            with st.spinner(f"Loading {stocks_df['comp_name'].iloc[i + 1]}..."):
+                symbol = stocks_df['symbol'].iloc[i + 1]
+                name = stocks_df['comp_name'].iloc[i + 1]
+                industry = stocks_df['industry'].iloc[i + 1]
+                chart_data, current_price, volume, daily_change, pivot_points = load_chart_data(
+                    symbol,
+                    TIME_PERIODS[selected_period],
+                    INTERVALS[selected_interval]
+                )
+                if chart_data is not None:
+                    chart = create_chart(chart_data, name, symbol, current_price, volume, 
+                                      daily_change, pivot_points, industry)
+                    if chart:
+                        chart.load()
+                else:
+                    st.warning(f"No data available for {symbol} with selected settings")
 
-    # Add a footer
-    st.markdown("---")
-    st.markdown("Developed by Laksh | Data provided by Yahoo Finance")
+    # Third chart
+    with col3:
+        if i + 2 < len(stocks_df):
+            with st.spinner(f"Loading {stocks_df['comp_name'].iloc[i + 2]}..."):
+                symbol = stocks_df['symbol'].iloc[i + 2]
+                name = stocks_df['comp_name'].iloc[i + 2]
+                industry = stocks_df['industry'].iloc[i + 2]
+                chart_data, current_price, volume, daily_change, pivot_points = load_chart_data(
+                    symbol,
+                    TIME_PERIODS[selected_period],
+                    INTERVALS[selected_interval]
+                )
+                if chart_data is not None:
+                    chart = create_chart(chart_data, name, symbol, current_price, volume, 
+                                      daily_change, pivot_points, industry)
+                    if chart:
+                        chart.load()
+                else:
+                    st.warning(f"No data available for {symbol} with selected settings")
+
+# Footer
+st.markdown("---")
+st.markdown("""
+    <div style='text-align: center; color: #718096;'>
+        Developed by Laksh | Data provided by Yahoo Finance
+    </div>
+""", unsafe_allow_html=True)
