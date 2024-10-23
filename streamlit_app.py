@@ -38,7 +38,7 @@ def load_chart_data(symbol):
         # Add .NS only if it's not already there
         ticker = f"{symbol}.NS" if not symbol.endswith('.NS') else symbol
         
-        df = yf.download(ticker,period='ytd', interval='1d')
+        df = yf.download(ticker,period='6mo', interval='1d')
         
         if df.empty:
             print(f"No data received for {ticker}")
