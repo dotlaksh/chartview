@@ -1,110 +1,98 @@
 import streamlit as st
-import yfinance as yf
 import pandas as pd
-from lightweight_charts import Chart as StreamlitChart
+import yfinance as yf
+import plotly.graph_objects as go
+from datetime import datetime, timedelta
+import math
 
-# Load stock symbols from CSV file
-nse_symbols = pd.read_csv('nse.csv')
+# Page configuration
+st.set_page_config(layout="wide", page_title="Stock Dashboard")
+st.title("NSE Stocks Dashboard")
 
-# Sidebar selection for the stock symbol
-st.sidebar.title("Select Stock Symbol")
-selected_symbol = st.sidebar.selectbox("Choose a stock:", nse_symbols['Symbol'])
+# Read stock data
+@st.cache_data
+def load_stock_data():
+    return pd.read_csv('nse.csv')
 
-# Ensure the symbol is correctly formatted for NSE
-formatted_symbol = f"{selected_symbol}.NS"
+# Fetch stock data from yfinance
+@st.cache_data
+def fetch_stock_data(symbol):
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=365)
+    try:
+        stock = yf.download(symbol, start=start_date, end=end_date)
+        return stock
+    except:
+        return None
 
-# Fetch data from yfinance
-def get_stock_data(symbol):
-    stock_data = yf.download(symbol, period='ytd', interval='1d')
-    stock_data.reset_index(inplace=True)
-    # Ensure the 'Date' column is in datetime format
-    stock_data['Date'] = pd.to_datetime(stock_data['Date'])
-    return stock_data
-
-# Function to create and display the customized chart
-def create_chart(chart_data, name, symbol, current_price, volume, daily_change):
-    if chart_data is not None:
-        chart_height = 450
-        chart = StreamlitChart(height=chart_height)
-
-        change_color = '#00ff55' if daily_change >= 0 else '#ed4807'
-        change_symbol = '▲' if daily_change >= 0 else '▼'
-        
-        st.markdown(f"""
-        <div class="stock-card">
-            <div class="stock-header">
-                <span class="stock-name">{symbol} | ₹{current_price:.2f} | {volume:,.0f} 
-                <span style='color: {change_color};'>| {change_symbol} {abs(daily_change):.2f}% </span></span>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        chart.layout(
-            background_color='#1E222D',
-            text_color='#FFFFFF',
-            font_size=12,
-            font_family='Helvetica'
-        )
-        
-        chart.candle_style(
-            up_color='#00ff55',
-            down_color='#ed4807',
-            wick_up_color='#00ff55',
-            wick_down_color='#ed4807'
-        )
-        
-        chart.volume_config(
-            up_color='#00ff55',
-            down_color='#ed4807'
-        )
-        
-        chart.crosshair(
-            mode='normal',
-            vert_color='#FFFFFF',
-            vert_style='dotted',
-            horz_color='#FFFFFF',
-            horz_style='dotted'
-        )
-        
-        chart.time_scale(right_offset=5, min_bar_spacing=5)
-        chart.grid(vert_enabled=False, horz_enabled=False)
-        chart.set(chart_data)
-        
-        return chart
-    return None
-
-# Prepare data for the candlestick chart
-def prepare_chart_data(stock_data):
-    return [
-        {
-            "time": row["Date"].strftime("%Y-%m-%d"),
-            "open": row["Open"],
-            "high": row["High"],
-            "low": row["Low"],
-            "close": row["Close"],
-            "volume": row["Volume"]
-        }
-        for _, row in stock_data.iterrows()
-    ]
-
-# Main app
-st.title("Stock Candlestick Chart Viewer")
-if selected_symbol:
-    st.write(f"Displaying candlestick chart for: {formatted_symbol}")
+# Create candlestick chart
+def create_candlestick(data, symbol):
+    fig = go.Figure(data=[go.Candlestick(x=data.index,
+                                        open=data['Open'],
+                                        high=data['High'],
+                                        low=data['Low'],
+                                        close=data['Close'])])
     
-    # Get stock data
-    data = get_stock_data(formatted_symbol)
-    
-    if not data.empty:
-        # Calculate additional information
-        current_price = data['Close'].iloc[-1]
-        volume = data['Volume'].iloc[-1]
-        daily_change = ((data['Close'].iloc[-1] - data['Open'].iloc[-1]) / data['Open'].iloc[-1]) * 100
+    fig.update_layout(
+        title=f'{symbol} Stock Price',
+        yaxis_title='Price',
+        xaxis_title='Date',
+        height=400,
+        margin=dict(l=50, r=50, t=50, b=50)
+    )
+    return fig
 
-        # Prepare chart data
-        chart_data = prepare_chart_data(data)
+# Load stock data
+stocks_df = load_stock_data()
+symbols = stocks_df['Symbol'].tolist()  # Assuming 'Symbol' is the column name
+
+# Calculate total pages
+CHARTS_PER_PAGE = 9
+CHARTS_PER_ROW = 3
+total_pages = math.ceil(len(symbols) / CHARTS_PER_PAGE)
+
+# Add pagination controls
+col1, col2, col3 = st.columns([1, 3, 1])
+with col2:
+    current_page = st.number_input('Page', min_value=1, max_value=total_pages, value=1)
+
+# Calculate start and end index for current page
+start_idx = (current_page - 1) * CHARTS_PER_PAGE
+end_idx = min(start_idx + CHARTS_PER_PAGE, len(symbols))
+
+# Create progress bar
+progress_bar = st.progress(0)
+
+# Display charts in grid
+for i in range(start_idx, end_idx, CHARTS_PER_ROW):
+    cols = st.columns(CHARTS_PER_ROW)
+    for j in range(CHARTS_PER_ROW):
+        if i + j < end_idx:
+            symbol = symbols[i + j]
+            with cols[j]:
+                data = fetch_stock_data(symbol)
+                if data is not None and not data.empty:
+                    fig = create_candlestick(data, symbol)
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.error(f"Unable to fetch data for {symbol}")
         
-        # Render the candlestick chart using the customized function
-        create_chart(chart_data, selected_symbol, formatted_symbol, current_price, volume, daily_change)
-    else:
-        st.write("No data available for this symbol.")
+        # Update progress
+        progress = (i + j - start_idx + 1) / min(CHARTS_PER_PAGE, end_idx - start_idx)
+        progress_bar.progress(progress)
+
+# Add page navigation buttons
+col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
+
+with col1:
+    if current_page > 1:
+        if st.button('← Previous'):
+            current_page -= 1
+
+with col4:
+    if current_page < total_pages:
+        if st.button('Next →'):
+            current_page += 1
+
+# Display page information
+st.write(f"Page {current_page} of {total_pages}")
