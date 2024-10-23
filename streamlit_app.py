@@ -9,19 +9,20 @@ from datetime import datetime, timedelta
 @st.cache_data
 def load_stock_data():
     try:
-        # Load the CSV file
         df = pd.read_csv('nse.csv')
-        
-        # Show the column names in the console for debugging
         print("Available columns:", df.columns.tolist())
         
-        # If there's only one column, use it as the symbol column
         if len(df.columns) == 1:
             df.columns = ['symbol']
         
-        # If 'symbol' column doesn't exist, rename the first column to 'symbol'
         if 'symbol' not in df.columns:
             df = df.rename(columns={df.columns[0]: 'symbol'})
+        
+        # Clean the symbols
+        df['symbol'] = df['symbol'].str.strip()
+        
+        # Debug print
+        print("First few symbols:", df['symbol'].head().tolist())
         
         return df
     except Exception as e:
@@ -30,33 +31,50 @@ def load_stock_data():
 
 @st.cache_data
 def load_chart_data(symbol):
-    ticker = f"{symbol}.NS"
     try:
-        df = yf.download(ticker, period='ytd', interval='1d')
+        # Debug print
+        print(f"Loading data for symbol: {symbol}")
+        
+        # Add .NS only if it's not already there
+        ticker = f"{symbol}.NS" if not symbol.endswith('.NS') else symbol
+        
+        df = yf.download(ticker, start=(datetime.now() - timedelta(days=365)).strftime('%Y-%m-%d'), 
+                        end=datetime.now().strftime('%Y-%m-%d'), 
+                        progress=False)
+        
+        if df.empty:
+            print(f"No data received for {ticker}")
+            return None, None, None, None
+            
         df.reset_index(inplace=True)
         
-        if not df.empty:
-            chart_data = pd.DataFrame({
-                "time": df["Date"].dt.strftime("%Y-%m-%d"),
-                "open": df["Open"],
-                "high": df["High"],
-                "low": df["Low"],
-                "close": df["Close"],
-                "volume": df["Volume"]
-            })
-            
-            current_price = df['Close'].iloc[-1]
-            prev_price = df['Close'].iloc[-2]
-            daily_change = ((current_price - prev_price) / prev_price) * 100
-            
-            return chart_data, current_price, df['Volume'].iloc[-1], daily_change
-        return None, None, None, None
+        # Debug print
+        print(f"Data loaded for {ticker}, shape: {df.shape}")
+        
+        chart_data = pd.DataFrame({
+            "time": df["Date"].dt.strftime("%Y-%m-%d"),
+            "open": df["Open"].round(2),
+            "high": df["High"].round(2),
+            "low": df["Low"].round(2),
+            "close": df["Close"].round(2),
+            "volume": df["Volume"].round(2)
+        })
+        
+        current_price = df['Close'].iloc[-1]
+        prev_price = df['Close'].iloc[-2]
+        daily_change = ((current_price - prev_price) / prev_price) * 100
+        
+        return chart_data, current_price, df['Volume'].iloc[-1], daily_change
     except Exception as e:
         print(f"Error loading data for {symbol}: {e}")
         return None, None, None, None
 
 def create_chart(chart_data, symbol, current_price, volume, daily_change):
-    if chart_data is not None:
+    try:
+        if chart_data is None or chart_data.empty:
+            print(f"No chart data for {symbol}")
+            return None
+            
         chart_height = 450
         chart = StreamlitChart(height=chart_height)
 
@@ -71,6 +89,10 @@ def create_chart(chart_data, symbol, current_price, volume, daily_change):
             Vol: {volume:,.0f}
         </div>
         """, unsafe_allow_html=True)
+
+        # Print first few rows of chart data for debugging
+        print(f"Chart data for {symbol}:")
+        print(chart_data.head())
 
         chart.layout(
             background_color='#1E222D',
@@ -101,9 +123,12 @@ def create_chart(chart_data, symbol, current_price, volume, daily_change):
         
         chart.time_scale(right_offset=5, min_bar_spacing=10)
         chart.grid(vert_enabled=False, horz_enabled=False)
-        chart.set(chart_data)
+        chart.set(chart_data.to_dict('records'))
+        
         return chart
-    return None
+    except Exception as e:
+        print(f"Error creating chart for {symbol}: {e}")
+        return None
 
 # Page setup
 st.set_page_config(layout="wide", page_title="ChartView 2.0", page_icon="📈")
@@ -145,13 +170,17 @@ with st.sidebar:
 # Get stocks data and display charts
 stocks_df = load_stock_data()
 
-# Show the available columns in the sidebar for debugging
+# Show first few symbols in the sidebar for debugging
 with st.sidebar:
-    st.write("Available columns:", stocks_df.columns.tolist())
+    st.write("First few symbols in CSV:")
+    st.write(stocks_df['symbol'].head().tolist())
 
 # Filter stocks based on search term
 if search_term:
     stocks_df = stocks_df[stocks_df['symbol'].str.contains(search_term, case=False)]
+
+# Display the total number of stocks for debugging
+st.sidebar.write(f"Total stocks: {len(stocks_df)}")
 
 CHARTS_PER_PAGE = 12
 total_pages = math.ceil(len(stocks_df) / CHARTS_PER_PAGE)
@@ -182,24 +211,34 @@ for i in range(start_idx, end_idx, 2):
 
     # First chart
     with col1:
-        with st.spinner(f"Loading {stocks_df['symbol'].iloc[i]}..."):
-            symbol = stocks_df['symbol'].iloc[i]
+        symbol = stocks_df['symbol'].iloc[i]
+        st.write(f"Loading data for: {symbol}")  # Debug message
+        with st.spinner(f"Loading {symbol}..."):
             chart_data, current_price, volume, daily_change = load_chart_data(symbol)
             if chart_data is not None:
                 chart = create_chart(chart_data, symbol, current_price, volume, daily_change)
                 if chart:
                     chart.load()
+                else:
+                    st.write(f"Failed to create chart for {symbol}")
+            else:
+                st.write(f"No data available for {symbol}")
 
     # Second chart (if available)
     with col2:
         if i + 1 < end_idx:
-            with st.spinner(f"Loading {stocks_df['symbol'].iloc[i + 1]}..."):
-                symbol = stocks_df['symbol'].iloc[i + 1]
+            symbol = stocks_df['symbol'].iloc[i + 1]
+            st.write(f"Loading data for: {symbol}")  # Debug message
+            with st.spinner(f"Loading {symbol}..."):
                 chart_data, current_price, volume, daily_change = load_chart_data(symbol)
                 if chart_data is not None:
                     chart = create_chart(chart_data, symbol, current_price, volume, daily_change)
                     if chart:
                         chart.load()
+                    else:
+                        st.write(f"Failed to create chart for {symbol}")
+                else:
+                    st.write(f"No data available for {symbol}")
 
 # Add a footer
 st.markdown("---")
