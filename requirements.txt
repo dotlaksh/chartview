@@ -1,4 +1,4 @@
 streamlit
 pandas
-yfinance
+yfinance==0.2.46
 lightweight-charts
