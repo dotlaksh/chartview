@@ -411,4 +411,4 @@ st.markdown("""
     <div style='text-align: center; color: #718096;'>
         Developed by Laksh | Data provided by Yahoo Finance
     </div>
-""", unsafe_allow_html
+""", unsafe_allow_html=True)
