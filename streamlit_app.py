@@ -1,120 +1,181 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
+import plotly.graph_objects as go
+from datetime import datetime, timedelta
 
 # Streamlit app details
-st.set_page_config(page_title="Financial Analysis", layout="wide")
-with st.sidebar:
-    st.title("Financial Analysis")
-    ticker = st.text_input("Enter a stock ticker (e.g. AAPL)", "AAPL")
-    period = st.selectbox("Enter a time frame", ("1D", "5D", "1M", "6M", "YTD", "1Y", "5Y"), index=2)
-    button = st.button("Submit")
+st.set_page_config(page_title="NSE Stock Analysis", layout="wide")
 
-# Format market cap and enterprise value into something readable
+# Format large numbers into readable format
 def format_value(value):
-    suffixes = ["", "K", "M", "B", "T"]
-    suffix_index = 0
-    while value >= 1000 and suffix_index < len(suffixes) - 1:
-        value /= 1000
-        suffix_index += 1
-    return f"${value:.1f}{suffixes[suffix_index]}"
+    if pd.isna(value) or value == 'N/A':
+        return 'N/A'
+    try:
+        value = float(value)
+        suffixes = ["", "K", "M", "B", "T"]
+        suffix_index = 0
+        while value >= 1000 and suffix_index < len(suffixes) - 1:
+            value /= 1000
+            suffix_index += 1
+        return f"₹{value:.1f}{suffixes[suffix_index]}"
+    except:
+        return 'N/A'
 
-# If Submit button is clicked
-if button:
-    if not ticker.strip():
-        st.error("Please provide a valid stock ticker.")
-    else:
+# Main app
+def main():
+    # Sidebar controls
+    with st.sidebar:
+        st.title("NSE Stock Analysis")
+        
+        # Stock selection
+        ticker = st.text_input("Enter stock symbol (e.g., TCS, RELIANCE)", "TCS")
+        if ticker:
+            ticker = f"{ticker.upper()}.NS"
+        
+        # Time period selection
+        periods = {
+            "1 Day": "1d",
+            "5 Days": "5d",
+            "1 Month": "1mo",
+            "3 Months": "3mo",
+            "6 Months": "6mo",
+            "1 Year": "1y",
+            "2 Years": "2y",
+            "5 Years": "5y",
+            "YTD": "ytd",
+        }
+        selected_period = st.selectbox("Select Time Period", list(periods.keys()))
+        
+        intervals = {
+            "1 Day": "1m",
+            "5 Days": "5m",
+            "1 Month": "1h",
+            "3 Months": "1d",
+            "6 Months": "1d",
+            "1 Year": "1d",
+            "2 Years": "1wk",
+            "5 Years": "1wk",
+            "YTD": "1d",
+        }
+        
+        button = st.button("Analyze")
+
+    if button and ticker:
         try:
-            with st.spinner('Please wait...'):
-                # Retrieve stock data
-                stock = yf.Ticker(ticker)
-                info = stock.info
+            # Fetch stock data
+            stock = yf.Ticker(ticker)
+            info = stock.info
+            
+            # Get historical data
+            history = stock.history(
+                period=periods[selected_period],
+                interval=intervals[selected_period]
+            )
+            
+            if len(history) == 0:
+                st.error("No data available for the selected stock and period.")
+                return
 
-                st.subheader(f"{ticker} - {info.get('longName', 'N/A')}")
+            # Display stock header with company name
+            company_name = info.get('longName', ticker)
+            st.subheader(f"{company_name} ({ticker})")
 
-                # Plot historical stock price data
-                if period == "1D":
-                    history = stock.history(period="1d", interval="1h")
-                elif period == "5D":
-                    history = stock.history(period="5d", interval="1d")
-                elif period == "1M":
-                    history = stock.history(period="1mo", interval="1d")
-                elif period == "6M":
-                    history = stock.history(period="6mo", interval="1wk")
-                elif period == "YTD":
-                    history = stock.history(period="ytd", interval="1mo")
-                elif period == "1Y":
-                    history = stock.history(period="1y", interval="1mo")
-                elif period == "5Y":
-                    history = stock.history(period="5y", interval="3mo")
-                
-                chart_data = pd.DataFrame(history["Close"])
-                st.line_chart(chart_data)
+            # Create price chart using Plotly
+            fig = go.Figure()
+            fig.add_trace(go.Candlestick(
+                x=history.index,
+                open=history['Open'],
+                high=history['High'],
+                low=history['Low'],
+                close=history['Close'],
+                name='Price'
+            ))
+            fig.update_layout(
+                title='Stock Price Movement',
+                yaxis_title='Price (₹)',
+                xaxis_title='Date',
+                template='plotly_white'
+            )
+            st.plotly_chart(fig, use_container_width=True)
 
-                col1, col2, col3 = st.columns(3)
+            # Create three columns for metrics
+            col1, col2, col3 = st.columns(3)
+            
+            # Company Info
+            with col1:
+                st.subheader("Company Information")
+                company_info = pd.DataFrame({
+                    "Metric": [
+                        "Sector",
+                        "Industry",
+                        "Market Cap",
+                        "Enterprise Value",
+                        "P/E Ratio",
+                        "PEG Ratio"
+                    ],
+                    "Value": [
+                        info.get('sector', 'N/A'),
+                        info.get('industry', 'N/A'),
+                        format_value(info.get('marketCap', 'N/A')),
+                        format_value(info.get('enterpriseValue', 'N/A')),
+                        f"{info.get('trailingPE', 'N/A'):.2f}" if info.get('trailingPE') else 'N/A',
+                        f"{info.get('pegRatio', 'N/A'):.2f}" if info.get('pegRatio') else 'N/A'
+                    ]
+                })
+                st.dataframe(company_info, hide_index=True)
 
-                # Display stock information as a dataframe
-                country = info.get('country', 'N/A')
-                sector = info.get('sector', 'N/A')
-                industry = info.get('industry', 'N/A')
-                market_cap = info.get('marketCap', 'N/A')
-                ent_value = info.get('enterpriseValue', 'N/A')
-                employees = info.get('fullTimeEmployees', 'N/A')
+            # Price Information
+            with col2:
+                st.subheader("Price Information")
+                current_price = info.get('currentPrice', history['Close'][-1])
+                prev_close = info.get('previousClose', history['Close'][-2] if len(history) > 1 else None)
+                
+                price_info = pd.DataFrame({
+                    "Metric": [
+                        "Current Price",
+                        "Previous Close",
+                        "Day High",
+                        "Day Low",
+                        "52 Week High",
+                        "52 Week Low"
+                    ],
+                    "Value": [
+                        f"₹{current_price:.2f}" if current_price else 'N/A',
+                        f"₹{prev_close:.2f}" if prev_close else 'N/A',
+                        f"₹{info.get('dayHigh', 'N/A'):.2f}" if info.get('dayHigh') else 'N/A',
+                        f"₹{info.get('dayLow', 'N/A'):.2f}" if info.get('dayLow') else 'N/A',
+                        f"₹{info.get('fiftyTwoWeekHigh', 'N/A'):.2f}" if info.get('fiftyTwoWeekHigh') else 'N/A',
+                        f"₹{info.get('fiftyTwoWeekLow', 'N/A'):.2f}" if info.get('fiftyTwoWeekLow') else 'N/A'
+                    ]
+                })
+                st.dataframe(price_info, hide_index=True)
 
-                stock_info = [
-                    ("Stock Info", "Value"),
-                    ("Country", country),
-                    ("Sector", sector),
-                    ("Industry", industry),
-                    ("Market Cap", format_value(market_cap)),
-                    ("Enterprise Value", format_value(ent_value)),
-                    ("Employees", employees)
-                ]
-                
-                df = pd.DataFrame(stock_info[1:], columns=stock_info[0])
-                col1.dataframe(df, width=400, hide_index=True)
-                
-                # Display price information as a dataframe
-                current_price = info.get('currentPrice', 'N/A')
-                prev_close = info.get('previousClose', 'N/A')
-                day_high = info.get('dayHigh', 'N/A')
-                day_low = info.get('dayLow', 'N/A')
-                ft_week_high = info.get('fiftyTwoWeekHigh', 'N/A')
-                ft_week_low = info.get('fiftyTwoWeekLow', 'N/A')
-                
-                price_info = [
-                    ("Price Info", "Value"),
-                    ("Current Price", f"${current_price:.2f}"),
-                    ("Previous Close", f"${prev_close:.2f}"),
-                    ("Day High", f"${day_high:.2f}"),
-                    ("Day Low", f"${day_low:.2f}"),
-                    ("52 Week High", f"${ft_week_high:.2f}"),
-                    ("52 Week Low", f"${ft_week_low:.2f}")
-                ]
-                
-                df = pd.DataFrame(price_info[1:], columns=price_info[0])
-                col2.dataframe(df, width=400, hide_index=True)
-
-                # Display business metrics as a dataframe
-                forward_eps = info.get('forwardEps', 'N/A')
-                forward_pe = info.get('forwardPE', 'N/A')
-                peg_ratio = info.get('pegRatio', 'N/A')
-                dividend_rate = info.get('dividendRate', 'N/A')
-                dividend_yield = info.get('dividendYield', 'N/A')
-                recommendation = info.get('recommendationKey', 'N/A')
-                
-                biz_metrics = [
-                    ("Business Metrics", "Value"),
-                    ("EPS (FWD)", f"{forward_eps:.2f}"),
-                    ("P/E (FWD)", f"{forward_pe:.2f}"),
-                    ("PEG Ratio", f"{peg_ratio:.2f}"),
-                    ("Div Rate (FWD)", f"${dividend_rate:.2f}"),
-                    ("Div Yield (FWD)", f"{dividend_yield * 100:.2f}%"),
-                    ("Recommendation", recommendation.capitalize())
-                ]
-                
-                df = pd.DataFrame(biz_metrics[1:], columns=biz_metrics[0])
-                col3.dataframe(df, width=400, hide_index=True)
+            # Trading Statistics
+            with col3:
+                st.subheader("Trading Statistics")
+                trading_stats = pd.DataFrame({
+                    "Metric": [
+                        "Volume",
+                        "Avg. Volume (10d)",
+                        "Beta",
+                        "Forward P/E",
+                        "Dividend Rate",
+                        "Dividend Yield"
+                    ],
+                    "Value": [
+                        format_value(info.get('volume', 'N/A')),
+                        format_value(info.get('averageVolume10days', 'N/A')),
+                        f"{info.get('beta', 'N/A'):.2f}" if info.get('beta') else 'N/A',
+                        f"{info.get('forwardPE', 'N/A'):.2f}" if info.get('forwardPE') else 'N/A',
+                        f"₹{info.get('dividendRate', 'N/A'):.2f}" if info.get('dividendRate') else 'N/A',
+                        f"{info.get('dividendYield', 0) * 100:.2f}%" if info.get('dividendYield') else 'N/A'
+                    ]
+                })
+                st.dataframe(trading_stats, hide_index=True)
 
         except Exception as e:
-            st.exception(f"An error occurred: {e}")
+            st.error(f"An error occurred while analyzing the stock: {e}")
+
+if __name__ == "__main__":
+    main()
