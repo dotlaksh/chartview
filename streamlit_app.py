@@ -12,54 +12,16 @@ def load_stock_data():
         return pd.read_csv('nse.csv')
     except Exception as e:
         st.error(f"Error loading nse.csv: {e}")
-        return pd.DataFrame(columns=['symbol', 'stock_name'])
-
-def calculate_pivot_points(high, low, close):
-    """Calculate monthly pivot points and support/resistance levels"""
-    pivot = (high + low + close) / 3
-    r1 = 2 * pivot - low
-    s1 = 2 * pivot - high
-    r2 = pivot + (high - low)
-    s2 = pivot - (high - low)
-    r3 = high + 2 * (pivot - low)
-    s3 = low - 2 * (high - pivot)
-    
-    return {
-        'P': round(pivot, 2),
-        'R1': round(r1, 2),
-        'R2': round(r2, 2),
-        'R3': round(r3, 2),
-        'S1': round(s1, 2),
-        'S2': round(s2, 2),
-        'S3': round(s3, 2)
-    }
+        return pd.DataFrame(columns=['symbol'])
 
 @st.cache_data
 def load_chart_data(symbol):
     ticker = f"{symbol}.NS"
     try:
-        # Get data for the current month and previous month
-        end_date = datetime.now()
-        start_date = (end_date - timedelta(days=60)).strftime('%Y-%m-%d')
         df = yf.download(ticker, period='ytd', interval='1d')
         df.reset_index(inplace=True)
         
         if not df.empty:
-            # Calculate previous month's high, low, close for pivot points
-            current_month = datetime.now().strftime('%Y-%m')
-            prev_month = (datetime.now().replace(day=1) - timedelta(days=1)).strftime('%Y-%m')
-            prev_month_data = df[df['Date'].dt.strftime('%Y-%m') == prev_month]
-            
-            if len(prev_month_data) > 0:
-                monthly_high = prev_month_data['High'].max()
-                monthly_low = prev_month_data['Low'].min()
-                monthly_close = prev_month_data['Close'].iloc[-1]
-                
-                # Calculate pivot points using previous month's data
-                pivot_points = calculate_pivot_points(monthly_high, monthly_low, monthly_close)
-            else:
-                pivot_points = None
-
             chart_data = pd.DataFrame({
                 "time": df["Date"].dt.strftime("%Y-%m-%d"),
                 "open": df["Open"],
@@ -69,18 +31,17 @@ def load_chart_data(symbol):
                 "volume": df["Volume"]
             })
             
-            # Calculate daily percentage change
             current_price = df['Close'].iloc[-1]
             prev_price = df['Close'].iloc[-2]
             daily_change = ((current_price - prev_price) / prev_price) * 100
             
-            return chart_data, current_price, df['Volume'].iloc[-1], daily_change, pivot_points
-        return None, None, None, None, None
+            return chart_data, current_price, df['Volume'].iloc[-1], daily_change
+        return None, None, None, None
     except Exception as e:
         print(f"Error loading data: {e}")
-        return None, None, None, None, None
+        return None, None, None, None
 
-def create_chart(chart_data, name, symbol, current_price, volume, daily_change, pivot_points):
+def create_chart(chart_data, symbol, current_price, volume, daily_change):
     if chart_data is not None:
         chart_height = 450
         chart = StreamlitChart(height=chart_height)
@@ -90,7 +51,7 @@ def create_chart(chart_data, name, symbol, current_price, volume, daily_change, 
         
         st.markdown(f"""
         <div class="stock-info">
-            <span style='font-size: 16px; font-weight: bold;'>{name}</span>
+            <span style='font-size: 16px; font-weight: bold;'>{symbol}</span>
             <span style='color: #00ff55;'>₹{current_price:.2f}</span> | 
             <span style='color: {change_color};'>{change_symbol} {abs(daily_change):.2f}%</span> | 
             Vol: {volume:,.0f}
@@ -110,15 +71,6 @@ def create_chart(chart_data, name, symbol, current_price, volume, daily_change, 
             wick_up_color='#00ff55',
             wick_down_color='#ed4807'
         )
-    
-        if pivot_points:
-            chart.horizontal_line(pivot_points['P'], color='#227cf4', width=1, style='solid')
-            chart.horizontal_line(pivot_points['R1'], color='#ed4807', width=1, style='dashed')
-            chart.horizontal_line(pivot_points['R2'], color='#ed4807', width=1, style='dashed')
-            chart.horizontal_line(pivot_points['R3'], color='#ed4807', width=1, style='dashed')
-            chart.horizontal_line(pivot_points['S1'], color='#00ff55', width=1, style='dashed')
-            chart.horizontal_line(pivot_points['S2'], color='#00ff55', width=1, style='dashed')
-            chart.horizontal_line(pivot_points['S3'], color='#00ff55', width=1, style='dashed')
 
         chart.volume_config(
             up_color='#00ff55',
@@ -174,19 +126,14 @@ if 'current_page' not in st.session_state:
 with st.sidebar:
     st.title("📊 ChartView 2.0")
     st.markdown("---")
-    
-    # Add a search box for stocks
-    search_term = st.text_input("🔍 Search for a stock:", "")
+    search_term = st.text_input("🔍 Search for a stock symbol:", "")
 
 # Get stocks data and display charts
 stocks_df = load_stock_data()
 
 # Filter stocks based on search term
 if search_term:
-    stocks_df = stocks_df[
-        stocks_df['stock_name'].str.contains(search_term, case=False) | 
-        stocks_df['symbol'].str.contains(search_term, case=False)
-    ]
+    stocks_df = stocks_df[stocks_df['symbol'].str.contains(search_term, case=False)]
 
 CHARTS_PER_PAGE = 12
 total_pages = math.ceil(len(stocks_df) / CHARTS_PER_PAGE)
@@ -217,24 +164,22 @@ for i in range(start_idx, end_idx, 2):
 
     # First chart
     with col1:
-        with st.spinner(f"Loading {stocks_df['stock_name'].iloc[i]}..."):
+        with st.spinner(f"Loading {stocks_df['symbol'].iloc[i]}..."):
             symbol = stocks_df['symbol'].iloc[i]
-            name = stocks_df['stock_name'].iloc[i]
-            chart_data, current_price, volume, daily_change, pivot_points = load_chart_data(symbol)
+            chart_data, current_price, volume, daily_change = load_chart_data(symbol)
             if chart_data is not None:
-                chart = create_chart(chart_data, name, symbol, current_price, volume, daily_change, pivot_points)
+                chart = create_chart(chart_data, symbol, current_price, volume, daily_change)
                 if chart:
                     chart.load()
 
     # Second chart (if available)
     with col2:
         if i + 1 < end_idx:
-            with st.spinner(f"Loading {stocks_df['stock_name'].iloc[i + 1]}..."):
+            with st.spinner(f"Loading {stocks_df['symbol'].iloc[i + 1]}..."):
                 symbol = stocks_df['symbol'].iloc[i + 1]
-                name = stocks_df['stock_name'].iloc[i + 1]
-                chart_data, current_price, volume, daily_change, pivot_points = load_chart_data(symbol)
+                chart_data, current_price, volume, daily_change = load_chart_data(symbol)
                 if chart_data is not None:
-                    chart = create_chart(chart_data, name, symbol, current_price, volume, daily_change, pivot_points)
+                    chart = create_chart(chart_data, symbol, current_price, volume, daily_change)
                     if chart:
                         chart.load()
 
