@@ -69,35 +69,21 @@ def load_chart_data(symbol, time_period='ytd', interval='1d'):
                     return None, None, None, None, None
         
         df.reset_index(inplace=True)
+        chart_data = pd.DataFrame({
+            "time": df["Date"].dt.strftime("%Y-%m-%d"),
+            "open": df["Open"],
+            "high": df["High"],
+            "low": df["Low"],
+            "close": df["Close"],
+            "volume": df["Volume"]
+        })
         
-        if not df.empty:
-            current_month = datetime.now().strftime('%Y-%m')
-            prev_month = (datetime.now().replace(day=1) - timedelta(days=1)).strftime('%Y-%m')
-            prev_month_data = df[df['Date'].dt.strftime('%Y-%m') == prev_month]
-            
-            if len(prev_month_data) > 0:
-                monthly_high = prev_month_data['High'].max()
-                monthly_low = prev_month_data['Low'].min()
-                monthly_close = prev_month_data['Close'].iloc[-1]
-                pivot_points = calculate_pivot_points(monthly_high, monthly_low, monthly_close)
-            else:
-                pivot_points = None
-
-            chart_data = pd.DataFrame({
-                "time": df["Date"].dt.strftime("%Y-%m-%d"),
-                "open": df["Open"],
-                "high": df["High"],
-                "low": df["Low"],
-                "close": df["Close"],
-                "volume": df["Volume"]
-            })
-            
-            current_price = df['Close'].iloc[-1]
-            prev_price = df['Close'].iloc[-2]
-            daily_change = ((current_price - prev_price) / prev_price) * 100
-            
-            return chart_data, current_price, df['Volume'].iloc[-1], daily_change, pivot_points
-        return None, None, None, None, None
+        current_price = df['Close'].iloc[-1]
+        prev_price = df['Close'].iloc[-2]
+        daily_change = ((current_price - prev_price) / prev_price) * 100
+        
+        return chart_data, current_price, df['Volume'].iloc[-1], daily_change
+    return None, None, None, None, None
     except Exception as e:
         print(f"Error loading data for {symbol}: {e}")
         # Add debug logging
@@ -138,27 +124,8 @@ def get_stocks_by_industry(industry, search_term=''):
             ]
     return stocks_df
 
-# Function for pivot points calculation
-def calculate_pivot_points(high, low, close):
-    """Calculate monthly pivot points and support/resistance levels"""
-    pivot = (high + low + close) / 3
-    r1 = 2 * pivot - low
-    s1 = 2 * pivot - high
-    r2 = pivot + (high - low)
-    s2 = pivot - (high - low)
-    r3 = high + 2 * (pivot - low)
-    s3 = low - 2 * (high - pivot)
-    
-    return {
-        'P': round(pivot, 2),
-        'R1': round(r1, 2),
-        'R2': round(r2, 2),
-        'R3': round(r3, 2),
-        'S1': round(s1, 2),
-        'S2': round(s2, 2),
-        'S3': round(s3, 2)
-    }
-def create_chart(chart_data, name, symbol, current_price, volume, daily_change, pivot_points, industry):
+
+def create_chart(chart_data, name, symbol, current_price, volume, daily_change, industry):
     if chart_data is not None:
         chart_height = 450
         chart = StreamlitChart(height=chart_height)
@@ -188,15 +155,6 @@ def create_chart(chart_data, name, symbol, current_price, volume, daily_change, 
             wick_up_color='#00ff55',
             wick_down_color='#ed4807'
         )
-    
-        if pivot_points:
-            chart.horizontal_line(pivot_points['P'], color='#227cf4', width=1, style='solid')
-            chart.horizontal_line(pivot_points['R1'], color='#ed4807', width=1, style='dashed')
-            chart.horizontal_line(pivot_points['R2'], color='#ed4807', width=1, style='dashed')
-            chart.horizontal_line(pivot_points['R3'], color='#ed4807', width=1, style='dashed')
-            chart.horizontal_line(pivot_points['S1'], color='#00ff55', width=1, style='dashed')
-            chart.horizontal_line(pivot_points['S2'], color='#00ff55', width=1, style='dashed')
-            chart.horizontal_line(pivot_points['S3'], color='#00ff55', width=1, style='dashed')
 
         chart.volume_config(
             up_color='#00ff55',
@@ -467,14 +425,14 @@ for i in range(start_idx, end_idx):
             symbol = stocks_df['symbol'].iloc[i]
             name = stocks_df['comp_name'].iloc[i]
             industry = stocks_df['industry'].iloc[i]
-            chart_data, current_price, volume, daily_change, pivot_points = load_chart_data(
+            chart_data, current_price, volume, daily_change = load_chart_data(
                 symbol, 
                 TIME_PERIODS[selected_period],
                 INTERVALS[selected_interval]
             )
             if chart_data is not None:
                 chart = create_chart(chart_data, name, symbol, current_price, volume, 
-                                  daily_change, pivot_points, industry)
+                                  daily_change, industry)
                 if chart:
                     chart.load()
             else:
