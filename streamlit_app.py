@@ -17,6 +17,8 @@ formatted_symbol = f"{selected_symbol}.NS"
 def get_stock_data(symbol):
     stock_data = yf.download(symbol, period='ytd', interval='1d')
     stock_data.reset_index(inplace=True)
+    # Ensure the 'Date' column is in datetime format
+    stock_data['Date'] = pd.to_datetime(stock_data['Date'])
     return stock_data
 
 # Function to create and display the customized chart
