@@ -46,72 +46,53 @@ def validate_period_interval(period, interval):
             return '5Y'
     return period
 
+# Modified load_chart_data function to handle different intervals
 @st.cache_data
 def load_chart_data(symbol, time_period='ytd', interval='1d'):
     ticker = f"{symbol}.NS"
     try:
         # First attempt with specified period
-        df = yf.download(ticker, period=time_period, interval=interval, progress=False)
+        df = yf.download(ticker, period='ytd', interval='1d')
         
         # If data is empty or insufficient, try with 'max' period
         if df.empty or len(df) < 2:
-            df = yf.download(ticker, period='max', interval=interval, progress=False)
+            df = yf.download(ticker, period='max', interval=interval)
             if df.empty or len(df) < 2:
-                st.error(f"No data available for {symbol}. The stock might be delisted or temporarily unavailable.")
                 return None, None, None, None, None
         
         df.reset_index(inplace=True)
         
         if not df.empty:
-            # Ensure all numeric columns are float type and 1-dimensional
-            numeric_columns = ['Open', 'High', 'Low', 'Close', 'Volume']
-            for col in numeric_columns:
-                if isinstance(df[col], pd.Series):
-                    df[col] = df[col].astype(float)
-                else:
-                    # If column is DataFrame or numpy array, flatten it
-                    df[col] = df[col].flatten().astype(float)
-
             current_month = datetime.now().strftime('%Y-%m')
             prev_month = (datetime.now().replace(day=1) - timedelta(days=1)).strftime('%Y-%m')
             prev_month_data = df[df['Date'].dt.strftime('%Y-%m') == prev_month]
             
             if len(prev_month_data) > 0:
-                monthly_high = float(prev_month_data['High'].max())
-                monthly_low = float(prev_month_data['Low'].min())
-                monthly_close = float(prev_month_data['Close'].iloc[-1])
+                monthly_high = prev_month_data['High'].max()
+                monthly_low = prev_month_data['Low'].min()
+                monthly_close = prev_month_data['Close'].iloc[-1]
                 pivot_points = calculate_pivot_points(monthly_high, monthly_low, monthly_close)
             else:
                 pivot_points = None
 
-            # Create chart data with explicit type conversion
             chart_data = pd.DataFrame({
                 "time": df["Date"].dt.strftime("%Y-%m-%d"),
-                "open": df["Open"].astype(float),
-                "high": df["High"].astype(float),
-                "low": df["Low"].astype(float),
-                "close": df["Close"].astype(float),
-                "volume": df["Volume"].astype(float)
+                "open": df["Open"],
+                "high": df["High"],
+                "low": df["Low"],
+                "close": df["Close"],
+                "volume": df["Volume"]
             })
             
-            current_price = float(df['Close'].iloc[-1])
-            prev_price = float(df['Close'].iloc[-2])
+            current_price = df['Close'].iloc[-1]
+            prev_price = df['Close'].iloc[-2]
             daily_change = ((current_price - prev_price) / prev_price) * 100
             
             return chart_data, current_price, df['Volume'].iloc[-1], daily_change, pivot_points
         return None, None, None, None, None
     except Exception as e:
-        error_message = str(e)
-        if "JSONDecodeError" in error_message or "YFTzMissingError" in error_message:
-            st.warning(f"Unable to fetch data for {symbol}. The stock might be temporarily unavailable or has limited trading history.")
-        elif "Invalid ticker" in error_message:
-            st.error(f"Invalid stock symbol: {symbol}")
-        elif "Data must be 1-dimensional" in error_message:
-            st.error(f"Error processing data for {symbol}: Data format issue. Please try a different time period.")
-        else:
-            st.error(f"Error loading data for {symbol}: {error_message}")
+        print(f"Error loading data for {symbol}: {e}")
         return None, None, None, None, None
-        
 @st.cache_data
 def get_industries():
     with get_db_connection() as conn:
@@ -165,20 +146,8 @@ def calculate_pivot_points(high, low, close):
         'S2': round(s2, 2),
         'S3': round(s3, 2)
     }
-
 def create_chart(chart_data, name, symbol, current_price, volume, daily_change, pivot_points, industry):
-    if chart_data is None:
-        st.info(f"No chart data available for {symbol}")
-        return None
-        
-    try:
-        # Verify data types and dimensions before creating chart
-        for col in ['open', 'high', 'low', 'close', 'volume']:
-            if not isinstance(chart_data[col].iloc[0], (int, float)):
-                chart_data[col] = chart_data[col].astype(float)
-            if len(chart_data[col].shape) > 1:
-                chart_data[col] = chart_data[col].flatten()
-
+    if chart_data is not None:
         chart_height = 450
         chart = StreamlitChart(height=chart_height)
 
@@ -235,9 +204,7 @@ def create_chart(chart_data, name, symbol, current_price, volume, daily_change, 
         chart.set(chart_data)
         
         return chart
-    except Exception as e:
-        st.error(f"Error creating chart for {symbol}: {str(e)}")
-        return None
+    return None
 
 # Page setup
 st.set_page_config(layout="wide", page_title="StockView Pro", page_icon="📈")
@@ -347,6 +314,10 @@ st.markdown("""
 
     </style>
 """, unsafe_allow_html=True)
+
+
+
+# [Previous code remains the same until the sidebar section]
 
 # Modified sidebar section
 with st.sidebar:
