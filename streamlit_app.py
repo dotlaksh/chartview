@@ -1,243 +1,120 @@
-import pandas as pd
 import streamlit as st
 import yfinance as yf
-from lightweight_charts.widgets import StreamlitChart
-import math
-from datetime import datetime, timedelta
+import pandas as pd
 
-# Load stock data from CSV
-@st.cache_data
-def load_stock_data():
-    try:
-        df = pd.read_csv('nse.csv')
-        print("Available columns:", df.columns.tolist())
-        
-        if len(df.columns) == 1:
-            df.columns = ['symbol']
-        
-        if 'symbol' not in df.columns:
-            df = df.rename(columns={df.columns[0]: 'symbol'})
-        
-        # Clean the symbols
-        df['symbol'] = df['symbol'].str.strip()
-        
-        # Debug print
-        print("First few symbols:", df['symbol'].head().tolist())
-        
-        return df
-    except Exception as e:
-        st.error(f"Error loading nse.csv: {e}")
-        return pd.DataFrame(columns=['symbol'])
-
-@st.cache_data
-def load_chart_data(symbol):
-    try:
-        # Debug print
-        print(f"Loading data for symbol: {symbol}")
-        
-        # Add .NS only if it's not already there
-        ticker = f"{symbol}.NS" if not symbol.endswith('.NS') else symbol
-        
-        df = yf.download(ticker,period='6mo', interval='1d')
-        
-        if df.empty:
-            print(f"No data received for {ticker}")
-            return None, None, None, None
-            
-        df.reset_index(inplace=True)
-        
-        # Debug print
-        print(f"Data loaded for {ticker}, shape: {df.shape}")
-        
-        chart_data = pd.DataFrame({
-            "time": df["Date"].dt.strftime("%Y-%m-%d"),
-            "open": df["Open"].round(2),
-            "high": df["High"].round(2),
-            "low": df["Low"].round(2),
-            "close": df["Close"].round(2),
-            "volume": df["Volume"].round(2)
-        })
-        
-        current_price = df['Close'].iloc[-1]
-        prev_price = df['Close'].iloc[-2]
-        daily_change = ((current_price - prev_price) / prev_price) * 100
-        
-        return chart_data, current_price, df['Volume'].iloc[-1], daily_change
-    except Exception as e:
-        print(f"Error loading data for {symbol}: {e}")
-        return None, None, None, None
-
-def create_chart(chart_data, symbol, current_price, volume, daily_change):
-    try:
-        if chart_data is None or chart_data.empty:
-            print(f"No chart data for {symbol}")
-            return None
-            
-        chart_height = 450
-        chart = StreamlitChart(height=chart_height)
-
-        change_color = '#00ff55' if daily_change >= 0 else '#ed4807'
-        change_symbol = '▲' if daily_change >= 0 else '▼'      
-        
-        st.markdown(f"""
-        <div class="stock-info">
-            <span style='font-size: 16px; font-weight: bold;'>{symbol}</span>
-            <span style='color: #00ff55;'>₹{current_price:.2f}</span> | 
-            <span style='color: {change_color};'>{change_symbol} {abs(daily_change):.2f}%</span> | 
-            Vol: {volume:,.0f}
-        </div>
-        """, unsafe_allow_html=True)
-
-        # Print first few rows of chart data for debugging
-        print(f"Chart data for {symbol}:")
-        print(chart_data.head())
-
-        chart.layout(
-            background_color='#1E222D',
-            text_color='#FFFFFF',
-            font_size=12,
-            font_family='Helvetica'
-        )
-        
-        chart.candle_style(
-            up_color='#00ff55',
-            down_color='#ed4807',
-            wick_up_color='#00ff55',
-            wick_down_color='#ed4807'
-        )
-
-        chart.volume_config(
-            up_color='#00ff55',
-            down_color='#ed4807'
-        )
-        
-        chart.crosshair(
-            mode='normal',
-            vert_color='#FFFFFF',
-            vert_style='dotted',
-            horz_color='#FFFFFF',
-            horz_style='dotted'
-        )
-        
-        chart.time_scale(right_offset=5, min_bar_spacing=10)
-        chart.grid(vert_enabled=False, horz_enabled=False)
-        chart.set(chart_data.to_dict('records'))
-        
-        return chart
-    except Exception as e:
-        print(f"Error creating chart for {symbol}: {e}")
-        return None
-
-# Page setup
-st.set_page_config(layout="wide", page_title="ChartView 2.0", page_icon="📈")
-
-# Custom CSS for better styling
-st.markdown("""
-    <style>
-    .stApp {
-        background-color: #0e1117;
-        color: #ffffff;
-    }
-    .stSelectbox, .stTextInput {
-        background-color: #262730;
-    }
-    .stButton>button {
-        background-color: #4CAF50;
-        color: white;
-        border-radius: 5px;
-    }
-    .stock-info {
-        background-color: #1E222D;
-        padding: 10px;
-        border-radius: 5px;
-        margin-bottom: 10px;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-# Initialize session states
-if 'current_page' not in st.session_state:
-    st.session_state.current_page = 1
-
-# Sidebar
+# Streamlit app details
+st.set_page_config(page_title="Financial Analysis", layout="wide")
 with st.sidebar:
-    st.title("📊 ChartView 2.0")
-    st.markdown("---")
-    search_term = st.text_input("🔍 Search for a stock symbol:", "")
+    st.title("Financial Analysis")
+    ticker = st.text_input("Enter a stock ticker (e.g. AAPL)", "AAPL")
+    period = st.selectbox("Enter a time frame", ("1D", "5D", "1M", "6M", "YTD", "1Y", "5Y"), index=2)
+    button = st.button("Submit")
 
-# Get stocks data and display charts
-stocks_df = load_stock_data()
+# Format market cap and enterprise value into something readable
+def format_value(value):
+    suffixes = ["", "K", "M", "B", "T"]
+    suffix_index = 0
+    while value >= 1000 and suffix_index < len(suffixes) - 1:
+        value /= 1000
+        suffix_index += 1
+    return f"${value:.1f}{suffixes[suffix_index]}"
 
-# Show first few symbols in the sidebar for debugging
-with st.sidebar:
-    st.write("First few symbols in CSV:")
-    st.write(stocks_df['symbol'].head().tolist())
+# If Submit button is clicked
+if button:
+    if not ticker.strip():
+        st.error("Please provide a valid stock ticker.")
+    else:
+        try:
+            with st.spinner('Please wait...'):
+                # Retrieve stock data
+                stock = yf.Ticker(ticker)
+                info = stock.info
 
-# Filter stocks based on search term
-if search_term:
-    stocks_df = stocks_df[stocks_df['symbol'].str.contains(search_term, case=False)]
+                st.subheader(f"{ticker} - {info.get('longName', 'N/A')}")
 
-# Display the total number of stocks for debugging
-st.sidebar.write(f"Total stocks: {len(stocks_df)}")
+                # Plot historical stock price data
+                if period == "1D":
+                    history = stock.history(period="1d", interval="1h")
+                elif period == "5D":
+                    history = stock.history(period="5d", interval="1d")
+                elif period == "1M":
+                    history = stock.history(period="1mo", interval="1d")
+                elif period == "6M":
+                    history = stock.history(period="6mo", interval="1wk")
+                elif period == "YTD":
+                    history = stock.history(period="ytd", interval="1mo")
+                elif period == "1Y":
+                    history = stock.history(period="1y", interval="1mo")
+                elif period == "5Y":
+                    history = stock.history(period="5y", interval="3mo")
+                
+                chart_data = pd.DataFrame(history["Close"])
+                st.line_chart(chart_data)
 
-CHARTS_PER_PAGE = 12
-total_pages = math.ceil(len(stocks_df) / CHARTS_PER_PAGE)
+                col1, col2, col3 = st.columns(3)
 
-# Pagination controls
-col1, col2, col3 = st.columns([1, 3, 1])
+                # Display stock information as a dataframe
+                country = info.get('country', 'N/A')
+                sector = info.get('sector', 'N/A')
+                industry = info.get('industry', 'N/A')
+                market_cap = info.get('marketCap', 'N/A')
+                ent_value = info.get('enterpriseValue', 'N/A')
+                employees = info.get('fullTimeEmployees', 'N/A')
 
-with col1:
-    if st.button("← Previous", key='prev', disabled=(st.session_state.current_page == 1)):
-        st.session_state.current_page -= 1
-        st.rerun()
+                stock_info = [
+                    ("Stock Info", "Value"),
+                    ("Country", country),
+                    ("Sector", sector),
+                    ("Industry", industry),
+                    ("Market Cap", format_value(market_cap)),
+                    ("Enterprise Value", format_value(ent_value)),
+                    ("Employees", employees)
+                ]
+                
+                df = pd.DataFrame(stock_info[1:], columns=stock_info[0])
+                col1.dataframe(df, width=400, hide_index=True)
+                
+                # Display price information as a dataframe
+                current_price = info.get('currentPrice', 'N/A')
+                prev_close = info.get('previousClose', 'N/A')
+                day_high = info.get('dayHigh', 'N/A')
+                day_low = info.get('dayLow', 'N/A')
+                ft_week_high = info.get('fiftyTwoWeekHigh', 'N/A')
+                ft_week_low = info.get('fiftyTwoWeekLow', 'N/A')
+                
+                price_info = [
+                    ("Price Info", "Value"),
+                    ("Current Price", f"${current_price:.2f}"),
+                    ("Previous Close", f"${prev_close:.2f}"),
+                    ("Day High", f"${day_high:.2f}"),
+                    ("Day Low", f"${day_low:.2f}"),
+                    ("52 Week High", f"${ft_week_high:.2f}"),
+                    ("52 Week Low", f"${ft_week_low:.2f}")
+                ]
+                
+                df = pd.DataFrame(price_info[1:], columns=price_info[0])
+                col2.dataframe(df, width=400, hide_index=True)
 
-with col2:
-    st.write(f"Page {st.session_state.current_page} of {total_pages}")
+                # Display business metrics as a dataframe
+                forward_eps = info.get('forwardEps', 'N/A')
+                forward_pe = info.get('forwardPE', 'N/A')
+                peg_ratio = info.get('pegRatio', 'N/A')
+                dividend_rate = info.get('dividendRate', 'N/A')
+                dividend_yield = info.get('dividendYield', 'N/A')
+                recommendation = info.get('recommendationKey', 'N/A')
+                
+                biz_metrics = [
+                    ("Business Metrics", "Value"),
+                    ("EPS (FWD)", f"{forward_eps:.2f}"),
+                    ("P/E (FWD)", f"{forward_pe:.2f}"),
+                    ("PEG Ratio", f"{peg_ratio:.2f}"),
+                    ("Div Rate (FWD)", f"${dividend_rate:.2f}"),
+                    ("Div Yield (FWD)", f"{dividend_yield * 100:.2f}%"),
+                    ("Recommendation", recommendation.capitalize())
+                ]
+                
+                df = pd.DataFrame(biz_metrics[1:], columns=biz_metrics[0])
+                col3.dataframe(df, width=400, hide_index=True)
 
-with col3:
-    if st.button("Next →", key='next', disabled=(st.session_state.current_page == total_pages)):
-        st.session_state.current_page += 1
-        st.rerun()
-
-# Determine start and end indices for pagination
-start_idx = (st.session_state.current_page - 1) * CHARTS_PER_PAGE
-end_idx = min(start_idx + CHARTS_PER_PAGE, len(stocks_df))
-
-# Display charts in a loop
-for i in range(start_idx, end_idx, 2):
-    col1, col2 = st.columns([1, 1], gap='small')
-
-    # First chart
-    with col1:
-        symbol = stocks_df['symbol'].iloc[i]
-        st.write(f"Loading data for: {symbol}")  # Debug message
-        with st.spinner(f"Loading {symbol}..."):
-            chart_data, current_price, volume, daily_change = load_chart_data(symbol)
-            if chart_data is not None:
-                chart = create_chart(chart_data, symbol, current_price, volume, daily_change)
-                if chart:
-                    chart.load()
-                else:
-                    st.write(f"Failed to create chart for {symbol}")
-            else:
-                st.write(f"No data available for {symbol}")
-
-    # Second chart (if available)
-    with col2:
-        if i + 1 < end_idx:
-            symbol = stocks_df['symbol'].iloc[i + 1]
-            st.write(f"Loading data for: {symbol}")  # Debug message
-            with st.spinner(f"Loading {symbol}..."):
-                chart_data, current_price, volume, daily_change = load_chart_data(symbol)
-                if chart_data is not None:
-                    chart = create_chart(chart_data, symbol, current_price, volume, daily_change)
-                    if chart:
-                        chart.load()
-                    else:
-                        st.write(f"Failed to create chart for {symbol}")
-                else:
-                    st.write(f"No data available for {symbol}")
-
-# Add a footer
-st.markdown("---")
-st.markdown("Developed by Laksh | Data provided by Yahoo Finance")
+        except Exception as e:
+            st.exception(f"An error occurred: {e}")
