@@ -449,9 +449,7 @@ with st.container():
 # Calculate start and end indices for current page
 start_idx = (st.session_state.current_page - 1) * CHARTS_PER_PAGE
 end_idx = min(start_idx + CHARTS_PER_PAGE, len(stocks_df))
-col1 = st.columns()
-#Chart
-with col1:
+for i in range(start_idx, end_idx):
     if i < len(stocks_df):
         with st.spinner(f"Loading {stocks_df['comp_name'].iloc[i]}..."):
             symbol = stocks_df['symbol'].iloc[i]
