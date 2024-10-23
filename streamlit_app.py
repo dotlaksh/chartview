@@ -21,7 +21,6 @@ TIME_PERIODS = {
     '1M': '1mo',
     '3M': '3mo',
     '6M': '6mo',
-    'YTD': 'ytd',
     '1Y': '1y',
     '2Y': '2y',
     '5Y': '5y',
