@@ -30,15 +30,14 @@ def show_candlestick_chart(stock_data):
             "open": row["Open"],
             "high": row["High"],
             "low": row["Low"],
-            "close": row["Close"],
-            "volume":row["Volume"]
+            "close": row["Close"]
         }
         for _, row in stock_data.iterrows()
     ]
 
     # Add candlestick series using correct method to create a candle-like effect
-    candlestick_series = chart.add_series('Candlestick', chart_data)
-    
+    candlestick_series = chart.add_candlestick_series()
+
     # Set the data and render the chart
     candlestick_series.set_data(chart_data)
     chart.show("chart-container", display=True)
