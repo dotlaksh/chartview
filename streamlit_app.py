@@ -419,7 +419,7 @@ stocks_df = get_stocks_by_industry(selected_industry, search_term)
 # Display total results
 st.markdown(f"### Showing {len(stocks_df)} stocks in {selected_industry}")
 
-CHARTS_PER_PAGE = 3  # Display 9 charts per page (3 rows of 3)
+CHARTS_PER_PAGE = 1  # Display 9 charts per page (3 rows of 3)
 total_pages = math.ceil(len(stocks_df) / CHARTS_PER_PAGE)
 
 # Pagination controls in a single row using Streamlit container
