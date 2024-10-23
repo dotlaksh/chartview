@@ -77,19 +77,17 @@ def load_chart_data(symbol, time_period='ytd', interval='1d'):
             "close": df["Close"],
             "volume": df["Volume"]
         })
-        
         current_price = df['Close'].iloc[-1]
         prev_price = df['Close'].iloc[-2]
         daily_change = ((current_price - prev_price) / prev_price) * 100
-        
         return chart_data, current_price, df['Volume'].iloc[-1], daily_change
     return None, None, None, None, None
-except Exception as e:
-    print(f"Error loading data for {symbol}: {e}")
-    # Add debug logging
-    st.write(f"Debug - Symbol: {symbol}, Ticker attempted: {ticker}")
-    st.write(f"Debug - Error message: {str(e)}")
-    return None, None, None, None, None
+    except Exception as e:
+        print(f"Error loading data for {symbol}: {e}")
+        # Add debug logging
+        st.write(f"Debug - Symbol: {symbol}, Ticker attempted: {ticker}")
+        st.write(f"Debug - Error message: {str(e)}")
+        return None, None, None, None, None
         
 @st.cache_data
 def get_industries():
