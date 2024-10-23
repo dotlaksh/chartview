@@ -31,7 +31,7 @@ def show_candlestick_chart(stock_data):
             "high": row["High"],
             "low": row["Low"],
             "close": row["Close"],
-            "volume":row["volume"]
+            "volume":row["Volume"]
         }
         for _, row in stock_data.iterrows()
     ]
