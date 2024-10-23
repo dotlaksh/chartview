@@ -53,7 +53,6 @@ def load_chart_data(symbol, time_period='ytd', interval='1d'):
         ticker = symbol
     else:
         ticker = f"{symbol}.NS"
-    
     try:
         # First attempt with specified period and interval
         df = yf.download(ticker, period=time_period, interval=interval)
@@ -67,7 +66,6 @@ def load_chart_data(symbol, time_period='ytd', interval='1d'):
                 df = yf.download(ticker_without_ns, period=time_period, interval=interval)
                 if df.empty or len(df) < 2:
                     return None, None, None, None, None
-        
         df.reset_index(inplace=True)
         chart_data = pd.DataFrame({
             "time": df["Date"].dt.strftime("%Y-%m-%d"),
@@ -81,7 +79,6 @@ def load_chart_data(symbol, time_period='ytd', interval='1d'):
         prev_price = df['Close'].iloc[-2]
         daily_change = ((current_price - prev_price) / prev_price) * 100
         return chart_data, current_price, df['Volume'].iloc[-1], daily_change
-    return None, None, None, None, None
     except Exception as e:
         print(f"Error loading data for {symbol}: {e}")
         # Add debug logging
