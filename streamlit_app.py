@@ -38,9 +38,7 @@ def load_chart_data(symbol):
         # Add .NS only if it's not already there
         ticker = f"{symbol}.NS" if not symbol.endswith('.NS') else symbol
         
-        df = yf.download(ticker, start=(datetime.now() - timedelta(days=365)).strftime('%Y-%m-%d'), 
-                        end=datetime.now().strftime('%Y-%m-%d'), 
-                        progress=False)
+        df = yf.download(ticker,period='ytd', interval='1d')
         
         if df.empty:
             print(f"No data received for {ticker}")
