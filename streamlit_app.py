@@ -181,9 +181,7 @@ if 'current_page' not in st.session_state:
 # Sidebar
 with st.sidebar:
     st.title("📊 ChartView 2.0")
-    st.markdown("---")
-    tables = get_tables()
-    
+    st.markdown("---")   
     # Add a search box for stocks
     search_term = st.text_input("🔍 Search for a stock:", "")
 
