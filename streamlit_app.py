@@ -161,13 +161,7 @@ def main():
                 chart = StreamlitChart(
                     width=800,
                     height=600,
-                    layout={
-                        "textColor": "black",
-                        "background": {
-                            "type": "solid",
-                            "color": "white"
-                        }
-                    }
+                    
                 )
 
                 # Add candlestick series
