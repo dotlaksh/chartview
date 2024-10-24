@@ -244,15 +244,6 @@ st.markdown("""
 with st.sidebar:
     st.title("📊 StockView")
     
-    # API Configuration
-    if 'upstox_api_key' not in st.secrets:
-        st.warning("Please set your Upstox API key in Streamlit secrets")
-        api_key = st.text_input("Enter Upstox API Key:", type="password")
-        if api_key:
-            st.secrets["upstox_api_key"] = api_key
-    
-    st.markdown("---")
-    
     # Industry filter
     if 'previous_industry' not in st.session_state:
         st.session_state.previous_industry = None
