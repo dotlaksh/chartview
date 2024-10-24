@@ -4,6 +4,7 @@ import requests
 from lightweight_charts.widgets import StreamlitChart
 from datetime import datetime, timedelta
 import math
+import json
 
 # Load ISIN data from CSV with better error handling
 def load_isin_data():
