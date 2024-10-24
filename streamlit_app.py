@@ -75,7 +75,7 @@ def load_chart_data(instrument_key):
             st.warning(f"No candle data available for {instrument_key}")
             return None, None, None, None
 
-        df = pd.DataFrame(candles, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume','extra')
+        df = pd.DataFrame(candles, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume','extra'])
         df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce').dt.strftime('%Y-%m-%d')
 
         chart_data = pd.DataFrame({
