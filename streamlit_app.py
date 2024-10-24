@@ -11,19 +11,28 @@ class UpstoxDataFetcher:
             'Accept': 'application/json'
         }
     
+    def get_instrument_key(self, isin):
+        return f"NSE_EQ-{isin}"
+    
     def get_historical_data(self, isin, interval='day', start_date=None):
         if start_date is None:
-            start_date = (datetime.now() - timedelta(days=365)).strftime('%Y-%m-%d')
+            start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
             
-        url = f'{self.base_url}/historical-candle/NSE_EQ%7C{isin}/{interval}/{start_date}'
+        instrument_key = self.get_instrument_key(isin)
+        url = f'{self.base_url}/historical-candle/{instrument_key}/{interval}/{start_date}'
         
         try:
             response = requests.get(url, headers=self.headers)
+            
             if response.status_code == 200:
                 data = response.json()
-                return self._process_candle_data(data['data']['candles'])
+                if 'data' in data and 'candles' in data['data']:
+                    return self._process_candle_data(data['data']['candles'])
+                else:
+                    st.error("No data available for the selected stock")
+                    return None
             else:
-                st.error(f"Error fetching data: {response.status_code} - {response.text}")
+                st.error("Error fetching data. Please try another stock or date range.")
                 return None
         except Exception as e:
             st.error(f"Error: {str(e)}")
@@ -45,7 +54,16 @@ class UpstoxDataFetcher:
 
 def load_isin_data():
     try:
+        # Read CSV with the correct column names
         df = pd.read_csv('isin.csv')
+        required_columns = ['Company Name', 'Industry', 'Symbol', 'ISIN']
+        
+        # Check if all required columns exist
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            st.error(f"Missing columns in CSV: {', '.join(missing_columns)}")
+            return None
+        
         return df
     except Exception as e:
         st.error(f"Error loading ISIN data: {str(e)}")
@@ -57,26 +75,56 @@ def main():
     # Load ISIN data
     isin_data = load_isin_data()
     if isin_data is None:
-        st.error("Could not load ISIN data. Please check if 'isin.csv' exists.")
         return
     
     # Sidebar for stock selection and date range
     st.sidebar.header("Settings")
     
-    # Stock selection
-    selected_stock = st.sidebar.selectbox(
+    # Create a search/filter box for companies
+    search_term = st.sidebar.text_input("Search Company/Symbol").lower()
+    
+    # Filter the dataframe based on search term
+    if search_term:
+        filtered_data = isin_data[
+            isin_data['Company Name'].str.lower().str.contains(search_term) |
+            isin_data['Symbol'].str.lower().str.contains(search_term)
+        ]
+    else:
+        filtered_data = isin_data
+    
+    # Stock selection with company name and symbol
+    stock_options = [f"{row['Symbol']} - {row['Company Name']}" 
+                    for _, row in filtered_data.iterrows()]
+    
+    if not stock_options:
+        st.sidebar.warning("No matches found")
+        return
+        
+    selected_option = st.sidebar.selectbox(
         "Select Stock",
-        isin_data['Symbol'].tolist(),
+        options=stock_options,
         index=0
     )
     
-    # Get ISIN for selected stock
-    selected_isin = isin_data[isin_data['Symbol'] == selected_stock]['ISIN'].iloc[0]
+    # Extract symbol and get corresponding ISIN
+    selected_symbol = selected_option.split(' - ')[0]
+    selected_stock_data = isin_data[isin_data['Symbol'] == selected_symbol].iloc[0]
+    selected_isin = selected_stock_data['ISIN']
+    
+    # Display company information
+    with st.expander("Company Information", expanded=True):
+        col1, col2 = st.columns(2)
+        with col1:
+            st.write("**Company Name:**", selected_stock_data['Company Name'])
+            st.write("**Symbol:**", selected_stock_data['Symbol'])
+        with col2:
+            st.write("**Industry:**", selected_stock_data['Industry'])
+            st.write("**ISIN:**", selected_stock_data['ISIN'])
     
     # Date range selection
     start_date = st.sidebar.date_input(
         "Start Date",
-        datetime.now() - timedelta(days=365)
+        datetime.now() - timedelta(days=30)
     )
     
     # Initialize Upstox client
@@ -105,7 +153,7 @@ def main():
 
                 # Add candlestick series
                 candlestick_series = chart.create_candlestick_series(
-                    title=f"{selected_stock} Price",
+                    title=f"{selected_symbol} Price",
                     price_format={"type": "price", "precision": 2},
                 )
                 candlestick_series.set_data(data)
@@ -159,8 +207,6 @@ def main():
                         'Volume': f"{int(d['volume']):,}"
                     } for d in data]
                     st.dataframe(pd.DataFrame(display_data))
-            else:
-                st.error("Failed to fetch data. Please try again.")
 
 if __name__ == "__main__":
     st.set_page_config(
