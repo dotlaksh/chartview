@@ -16,7 +16,7 @@ class UpstoxDataFetcher:
     
     def get_historical_data(self, isin, interval='day', start_date=None):
         if start_date is None:
-            start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
+            start_date = '2024-01-01'
             
         # Correct instrument key formatting
         instrument_key = self.get_instrument_key(isin)
