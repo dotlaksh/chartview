@@ -54,9 +54,11 @@ class UpstoxDataFetcher:
     def _process_candle_data(self, candles):
         processed_data = []
         for candle in candles:
-            timestamp = datetime.fromtimestamp(candle[0] / 1000)
+            # Ensure the timestamp is treated as an integer
+            timestamp = datetime.fromtimestamp(int(candle[0]) / 1000)  
+    
             processed_data.append({
-                'time': timestamp.timestamp(),
+                'time': timestamp.timestamp(),  # UNIX timestamp for the chart
                 'open': float(candle[1]),
                 'high': float(candle[2]),
                 'low': float(candle[3]),
@@ -64,6 +66,7 @@ class UpstoxDataFetcher:
                 'volume': float(candle[5])
             })
         return processed_data
+
 
 def load_isin_data():
     try:
