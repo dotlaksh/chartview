@@ -41,9 +41,13 @@ class UpstoxDataFetcher:
     def _process_candle_data(self, candles):
         processed_data = []
         for candle in candles:
-            timestamp = datetime.fromtimestamp(candle[0] / 1000)
+            # Convert ISO timestamp string to datetime object
+            timestamp = datetime.fromisoformat(candle[0].replace('Z', '+00:00'))
+            # Convert to Unix timestamp (seconds since epoch)
+            unix_timestamp = timestamp.timestamp()
+            
             processed_data.append({
-                'time': timestamp.timestamp(),
+                'time': unix_timestamp,
                 'open': float(candle[1]),
                 'high': float(candle[2]),
                 'low': float(candle[3]),
