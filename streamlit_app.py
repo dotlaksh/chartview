@@ -20,6 +20,7 @@ class UpstoxDataFetcher:
             
         instrument_key = self.get_instrument_key(isin)
         url = f'{self.base_url}/historical-candle/{instrument_key}/{interval}/{start_date}'
+        st.write(url)
         
         try:
             response = requests.get(url, headers=self.headers)
