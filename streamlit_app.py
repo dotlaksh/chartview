@@ -144,65 +144,65 @@ def main():
             if data:
                 # Create chart
                 # Initialize chart without layout parameter
-chart = StreamlitChart(
-    width=800,
-    height=600
-)
-
-# Configure chart options using the chart_options property
-chart.chart_options = {
-    "layout": {
-        "textColor": "black",
-        "background": {
-            "color": "white"
-        }
-    },
-    "rightPriceScale": {
-        "scaleMargins": {
-            "top": 0.1,
-            "bottom": 0.1
-        }
-    },
-    "timeScale": {
-        "timeVisible": True,
-        "secondsVisible": False
-    }
-}
-
-# Add candlestick series
-candlestick_series = chart.create_candlestick_series()
-candlestick_series.set_options(
-    title=f"{selected_symbol} Price",
-    priceFormat={"type": "price", "precision": 2}
-)
-candlestick_series.set_data(data)
-
-# Add volume series
-volume_series = chart.create_histogram_series()
-volume_series.set_options(
-    title="Volume",
-    priceFormat={"type": "volume"},
-    color="#26a69a",
-    priceScaleId="volume",
-    priceScale={
-        "scaleMargins": {
-            "top": 0.8,
-            "bottom": 0
-        },
-        "position": "right"
-    }
-)
-
-# Process volume data
-volume_data = [{
-    'time': d['time'],
-    'value': d['volume'],
-    'color': '#26a69a' if d['close'] >= d['open'] else '#ef5350'
-} for d in data]
-volume_series.set_data(volume_data)
-
-# Display chart
-st.write(chart)
+                chart = StreamlitChart(
+                    width=800,
+                    height=600
+                )
+                
+                # Configure chart options using the chart_options property
+                chart.chart_options = {
+                    "layout": {
+                        "textColor": "black",
+                        "background": {
+                            "color": "white"
+                        }
+                    },
+                    "rightPriceScale": {
+                        "scaleMargins": {
+                            "top": 0.1,
+                            "bottom": 0.1
+                        }
+                    },
+                    "timeScale": {
+                        "timeVisible": True,
+                        "secondsVisible": False
+                    }
+                }
+                
+                # Add candlestick series
+                candlestick_series = chart.create_candlestick_series()
+                candlestick_series.set_options(
+                    title=f"{selected_symbol} Price",
+                    priceFormat={"type": "price", "precision": 2}
+                )
+                candlestick_series.set_data(data)
+                
+                # Add volume series
+                volume_series = chart.create_histogram_series()
+                volume_series.set_options(
+                    title="Volume",
+                    priceFormat={"type": "volume"},
+                    color="#26a69a",
+                    priceScaleId="volume",
+                    priceScale={
+                        "scaleMargins": {
+                            "top": 0.8,
+                            "bottom": 0
+                        },
+                        "position": "right"
+                    }
+                )
+                
+                # Process volume data
+                volume_data = [{
+                    'time': d['time'],
+                    'value': d['volume'],
+                    'color': '#26a69a' if d['close'] >= d['open'] else '#ef5350'
+                } for d in data]
+                volume_series.set_data(volume_data)
+                
+                # Display chart
+                st.write(chart)
                 
                 # Display stats
                 latest_data = data[-1]
