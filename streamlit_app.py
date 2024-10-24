@@ -51,9 +51,9 @@ def load_chart_data(instrument_key):
     to_date = datetime.now().strftime('%Y-%m-%d')
     
     url = f"https://api.upstox.com/v2/historical-candle/NSE_EQ%7C{instrument_key}/{interval}/{to_date}"
+    st.write('url')
     headers = {
         'Accept': 'application/json'
-        # Include authentication headers if necessary
     }
     
     try:
