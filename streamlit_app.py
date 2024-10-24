@@ -105,7 +105,11 @@ def load_chart_data(instrument_key):
         return None, None, None, None
 
 def create_chart(chart_data, name, instrument_key, current_price, volume, daily_change):
-    if chart_data is not None:
+    if chart_data is None or chart_data.empty:
+        st.warning(f"No chart data available for {name}")
+        return None
+        
+    try:
         chart_height = 450
         chart = StreamlitChart(height=chart_height)
 
@@ -121,6 +125,7 @@ def create_chart(chart_data, name, instrument_key, current_price, volume, daily_
         </div>
         """, unsafe_allow_html=True)
 
+        # Configure chart appearance
         chart.layout(
             background_color='#1E222D',
             text_color='#FFFFFF',
@@ -150,9 +155,19 @@ def create_chart(chart_data, name, instrument_key, current_price, volume, daily_
         
         chart.time_scale(right_offset=5, min_bar_spacing=10)
         chart.grid(vert_enabled=False, horz_enabled=False)
+        
+        # Add data validation before setting
+        st.write("Debug - Chart data shape:", chart_data.shape)
+        st.write("Debug - Chart data columns:", chart_data.columns.tolist())
+        st.write("Debug - First row of chart data:", chart_data.iloc[0].to_dict())
+        
         chart.set(chart_data)
         return chart
-    return None
+        
+    except Exception as e:
+        st.error(f"Error creating chart for {name}: {str(e)}")
+        st.write("Debug - Chart creation error details:", str(e))
+        return None
 
 # Page setup
 st.set_page_config(layout="wide", page_title="ChartView 2.0", page_icon="📈")
