@@ -50,20 +50,8 @@ def load_chart_data(instrument_key):
 
     interval = "day"
     to_date = datetime.now().strftime('%Y-%m-%d')
-
-    # Print the raw instrument key for debugging
-    st.write(f"Debug - Raw instrument key: {instrument_key}")
-
-    # Remove any whitespace and verify ISIN format
-    instrument_key = instrument_key.strip()
-    if not instrument_key or len(instrument_key) != 12:
-        st.error(f"Invalid ISIN format: {instrument_key}")
-        return None, None, None, None
-
     encoded_instrument = requests.utils.quote(f"NSE_EQ|{instrument_key}")
     url = f"https://api.upstox.com/v2/historical-candle/{encoded_instrument}/{interval}/{to_date}"
-
-    st.write(f"Debug - Request URL: {url}")
 
     headers = {
         'Accept': 'application/json',
@@ -75,10 +63,6 @@ def load_chart_data(instrument_key):
         response = requests.get(url, headers=headers)
         response.raise_for_status()
         response_data = response.json()
-
-        st.write("Debug - Response data keys:", response_data.keys())
-        if 'data' in response_data:
-            st.write("Debug - Data section keys:", response_data['data'].keys())
 
         if 'status' not in response_data or response_data['status'] != 'success':
             st.error("API response indicates failure")
@@ -93,12 +77,7 @@ def load_chart_data(instrument_key):
             st.warning(f"No candle data available for {instrument_key}")
             return None, None, None, None
 
-        st.write("Debug - First candle data:", candles[0])
-
-        # Create DataFrame
         df = pd.DataFrame(candles, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-
-        # Convert timestamp to 'YYYY-MM-DD'
         df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce').dt.strftime('%Y-%m-%d')
 
         chart_data = pd.DataFrame({
