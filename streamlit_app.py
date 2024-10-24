@@ -54,9 +54,7 @@ def load_chart_data(instrument_key):
     url = f"https://api.upstox.com/v2/historical-candle/{encoded_instrument}/{interval}/{to_date}"
 
     headers = {
-        'Accept': 'application/json',
-        'User-Agent': 'Mozilla/5.0',
-        'Authorization': 'Bearer YOUR_API_KEY'  # Replace with actual API key
+        'Accept': 'application/json'
     }
 
     try:
