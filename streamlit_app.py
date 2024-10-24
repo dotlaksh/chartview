@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import requests
 from datetime import datetime, timedelta
-from streamlit_lightweight_charts import render_lightweight_charts
+from lightweight_charts.widgets import StreamlitChart
 
 class UpstoxDataFetcher:
     def __init__(self):
