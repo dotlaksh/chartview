@@ -1,7 +1,7 @@
 import pandas as pd
 import streamlit as st
 import sqlite3
-import yfinance as yf
+import requests
 from lightweight_charts.widgets import StreamlitChart
 from contextlib import contextmanager
 import math
@@ -16,22 +16,22 @@ def get_db_connection():
     finally:
         conn.close()
 
-# Time period and interval mappings
+# Time period mappings
 TIME_PERIODS = {
-    '1M': '1mo',
-    '3M': '3mo',
-    '6M': '6mo',
-    'YTD': 'ytd',
-    '1Y': '1y',
-    '2Y': '2y',
-    '5Y': '5y',
-    'MAX': 'max'
+    '1M': 30,
+    '3M': 90,
+    '6M': 180,
+    'YTD': None,  # Will be calculated dynamically
+    '1Y': 365,
+    '2Y': 730,
+    '5Y': 1825,
+    'MAX': 3650  # About 10 years
 }
 
 INTERVALS = {
-    'Daily': '1d',
-    'Weekly': '1wk',
-    'Monthly': '1mo'
+    'Daily': 'day',
+    'Weekly': 'week',
+    'Monthly': 'month'
 }
 
 # Function to validate time period and interval combination
@@ -46,44 +46,60 @@ def validate_period_interval(period, interval):
             return '5Y'
     return period
 
-# Modified load_chart_data function to return dictionary
+def get_date_range(time_period):
+    end_date = datetime.now()
+    
+    if time_period == 'YTD':
+        start_date = datetime(end_date.year, 1, 1)
+    else:
+        days = TIME_PERIODS[time_period]
+        start_date = end_date - timedelta(days=days)
+    
+    return start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d')
+
+# Modified load_chart_data function to use Upstox API
 @st.cache_data
-def load_chart_data(symbol, time_period='ytd', interval='1d'):
-    ticker = f"{symbol}.NS"
+def load_chart_data(symbol, time_period='YTD', interval='day'):
     try:
-        # First attempt with specified period
-        df = yf.download(ticker, period=time_period, interval=interval)
+        # Get date range based on time period
+        start_date, end_date = get_date_range(time_period)
         
-        # If data is empty or insufficient, try with 'max' period
-        if df.empty or len(df) < 2:
-            df = yf.download(ticker, period='max', interval=interval)
-            if df.empty or len(df) < 2:
+        # Construct the Upstox API URL
+        url = f'https://api.upstox.com/v2/historical-candle/NSE_EQ|{symbol}/{interval}/{start_date}/{end_date}'
+        
+        headers = {
+            'Accept': 'application/json',
+            'Api-Version': '2.0',
+            'Authorization': f'Bearer {st.secrets["upstox_api_key"]}'
+        }
+        
+        response = requests.get(url, headers=headers)
+        
+        if response.status_code == 200:
+            data = response.json()['data']
+            if not data:
                 return None
-        
-        df.reset_index(inplace=True)
-        
-        if not df.empty:
-            current_month = datetime.now().strftime('%Y-%m')
-            prev_month = (datetime.now().replace(day=1) - timedelta(days=1)).strftime('%Y-%m')
-            prev_month_data = df[df['Date'].dt.strftime('%Y-%m') == prev_month]
+            
+            df = pd.DataFrame(data)
+            df['timestamp'] = pd.to_datetime(df['timestamp'])
             
             chart_data = pd.DataFrame({
-                "time": df["Date"].dt.strftime("%Y-%m-%d"),
-                "open": df["Open"],
-                "high": df["High"],
-                "low": df["Low"],
-                "close": df["Close"],
-                "volume": df["Volume"]
+                "time": df["timestamp"].dt.strftime("%Y-%m-%d"),
+                "open": df["open"],
+                "high": df["high"],
+                "low": df["low"],
+                "close": df["close"],
+                "volume": df["volume"]
             })
             
-            current_price = df['Close'].iloc[-1]
-            prev_price = df['Close'].iloc[-2]
+            current_price = df['close'].iloc[-1]
+            prev_price = df['close'].iloc[-2]
             daily_change = ((current_price - prev_price) / prev_price) * 100
             
             return {
                 'chart_data': chart_data,
                 'current_price': current_price,
-                'volume': df['Volume'].iloc[-1],
+                'volume': df['volume'].iloc[-1],
                 'daily_change': daily_change
             }
         return None
@@ -178,20 +194,63 @@ def create_chart(chart_data, name, symbol, current_price, volume, daily_change, 
 # Page setup
 st.set_page_config(layout="wide", page_title="StockView Pro", page_icon="📈")
 
-# [Your existing CSS styles here - keep them exactly the same]
+# CSS styles
 st.markdown("""
     <style>
     .stApp {
         background-color: #0e1117;
         color: #ffffff;
     }
-    /* ... [rest of your CSS] ... */
+    .stock-card {
+        background-color: #1E222D;
+        border-radius: 5px;
+        padding: 10px;
+        margin-bottom: 10px;
+    }
+    .stock-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 5px;
+    }
+    .stock-name {
+        font-size: 16px;
+        font-weight: bold;
+    }
+    .page-info {
+        text-align: center;
+        color: #A0AEC0;
+        font-size: 14px;
+    }
+    .stButton>button {
+        width: 100%;
+        background-color: #2D3748;
+        color: white;
+        border: none;
+        padding: 10px 24px;
+        border-radius: 5px;
+    }
+    .stButton>button:hover {
+        background-color: #4A5568;
+    }
+    .stButton>button:disabled {
+        background-color: #1A202C;
+        color: #718096;
+    }
     </style>
 """, unsafe_allow_html=True)
 
 # Sidebar setup
 with st.sidebar:
     st.title("📊 StockView")
+    
+    # API Configuration
+    if 'upstox_api_key' not in st.secrets:
+        st.warning("Please set your Upstox API key in Streamlit secrets")
+        api_key = st.text_input("Enter Upstox API Key:", type="password")
+        if api_key:
+            st.secrets["upstox_api_key"] = api_key
+    
     st.markdown("---")
     
     # Industry filter
@@ -328,7 +387,7 @@ for i in range(start_idx, end_idx, 3):
                 
                 result = load_chart_data(
                     symbol, 
-                    TIME_PERIODS[selected_period],
+                    selected_period,
                     INTERVALS[selected_interval]
                 )
                 
