@@ -1,23 +1,29 @@
 import pandas as pd
 import streamlit as st
 import requests
-import json
 from lightweight_charts.widgets import StreamlitChart
 from datetime import datetime, timedelta
 import math
 
+# Load ISIN data from CSV
+def load_isin_data():
+    try:
+        isin_df = pd.read_csv('isin.csv')  # Assuming the CSV has a column 'isin'
+        return isin_df
+    except Exception as e:
+        st.error(f"Error loading ISIN data: {e}")
+        return pd.DataFrame()  # Return an empty DataFrame on error
+
 # Define a function to load chart data from Upstox API
 @st.cache_data
-def load_chart_data(symbol):
-    instrument_key = f"NSE_EQ|{isin}"  # Modify as per your API's requirements
-    interval = "1d"  # Adjust the interval as needed
+def load_chart_data(instrument_key):
+    interval = "day"  # Change interval as required
     to_date = datetime.now().strftime('%Y-%m-%d')
-    from_date = (datetime.now() - timedelta(days=60)).strftime('%Y-%m-%d')
     
-    url = f"https://api.upstox.com/v2/historical-candle/{instrument_key}/{interval}/{to_date}/{from_date}"
+    url = f"https://api.upstox.com/v2/historical-candle/NSE_EQ%7C{instrument_key}/{interval}/{to_date}"
     headers = {
         'Accept': 'application/json'
-        # You may need to include authentication headers, depending on the API requirements
+        # Include authentication headers if necessary
     }
     
     try:
@@ -40,15 +46,15 @@ def load_chart_data(symbol):
 
         # Calculate daily percentage change
         current_price = df['close'].iloc[-1]
-        prev_price = df['close'].iloc[-2]
-        daily_change = ((current_price - prev_price) / prev_price) * 100
+        prev_price = df['close'].iloc[-2] if len(df) > 1 else current_price  # Fallback
+        daily_change = ((current_price - prev_price) / prev_price) * 100 if prev_price != 0 else 0
 
         return chart_data, current_price, df['volume'].iloc[-1], daily_change
     except requests.exceptions.RequestException as e:
-        st.error(f"Error loading data for {symbol}: {e}")
+        st.error(f"Error loading data for {instrument_key}: {e}")
         return None, None, None, None
 
-def create_chart(chart_data, name, symbol, current_price, volume, daily_change):
+def create_chart(chart_data, name, instrument_key, current_price, volume, daily_change):
     if chart_data is not None:
         chart_height = 450
         chart = StreamlitChart(height=chart_height)
@@ -125,6 +131,9 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
+# Load ISIN data
+stocks_df = load_isin_data()
+
 # Initialize session states
 if 'current_page' not in st.session_state:
     st.session_state.current_page = 1
@@ -163,24 +172,24 @@ with st.sidebar:
 
         # First chart
         with col1:
-            with st.spinner(f"Loading {stocks_df['stock_name'].iloc[i]}..."):
-                symbol = stocks_df['symbol'].iloc[i]
-                name = stocks_df['stock_name'].iloc[i]
-                chart_data, current_price, volume, daily_change = load_chart_data(symbol)
+            with st.spinner(f"Loading {stocks_df['isin'].iloc[i]}..."):  # Assuming the column is named 'isin'
+                instrument_key = stocks_df['isin'].iloc[i]
+                name = f"Stock {i + 1}"  # Replace with appropriate stock name if available
+                chart_data, current_price, volume, daily_change = load_chart_data(instrument_key)
                 if chart_data is not None:
-                    chart = create_chart(chart_data, name, symbol, current_price, volume, daily_change)
+                    chart = create_chart(chart_data, name, instrument_key, current_price, volume, daily_change)
                     if chart:
                         chart.load()
 
         # Second chart (if available)
         with col2:
             if i + 1 < end_idx:
-                with st.spinner(f"Loading {stocks_df['stock_name'].iloc[i + 1]}..."):
-                    symbol = stocks_df['symbol'].iloc[i + 1]
-                    name = stocks_df['stock_name'].iloc[i + 1]
-                    chart_data, current_price, volume, daily_change = load_chart_data(symbol)
+                with st.spinner(f"Loading {stocks_df['isin'].iloc[i + 1]}..."):
+                    instrument_key = stocks_df['isin'].iloc[i + 1]
+                    name = f"Stock {i + 2}"  # Replace with appropriate stock name if available
+                    chart_data, current_price, volume, daily_change = load_chart_data(instrument_key)
                     if chart_data is not None:
-                        chart = create_chart(chart_data, name, symbol, current_price, volume, daily_change)
+                        chart = create_chart(chart_data, name, instrument_key, current_price, volume, daily_change)
                         if chart:
                             chart.load()
 
