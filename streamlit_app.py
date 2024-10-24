@@ -157,9 +157,19 @@ def create_chart(chart_data, name, instrument_key, current_price, volume, daily_
         return None
         
     try:
-        chart_height = 450
-        chart = StreamlitChart(height=chart_height)
+        # Convert chart_data to the exact format expected by StreamlitChart
+        formatted_data = chart_data.to_dict('records')
+        
+        # Print formatted data for debugging
+        st.write("Debug - Formatted chart data sample:", formatted_data[0])
+        
+        # Initialize chart with explicit configuration
+        chart = StreamlitChart(
+            height=450,
+            key=f"chart_{instrument_key}"  # Add unique key for each chart
+        )
 
+        # Info display
         change_color = '#00ff55' if daily_change >= 0 else '#ed4807'
         change_symbol = '▲' if daily_change >= 0 else '▼'      
         
@@ -172,48 +182,72 @@ def create_chart(chart_data, name, instrument_key, current_price, volume, daily_
         </div>
         """, unsafe_allow_html=True)
 
-        # Configure chart appearance
+        # Chart configuration
         chart.layout(
             background_color='#1E222D',
             text_color='#FFFFFF',
             font_size=12,
-            font_family='Helvetica'
+            font_family='Helvetica',
+            charts_background='#1E222D'  # Add explicit chart background
         )
         
+        # Primary series configuration
         chart.candle_style(
             up_color='#00ff55',
             down_color='#ed4807',
             wick_up_color='#00ff55',
-            wick_down_color='#ed4807'
+            wick_down_color='#ed4807',
+            border_visible=False,
+            wick_visible=True
         )
 
+        # Volume configuration
         chart.volume_config(
             up_color='#00ff55',
-            down_color='#ed4807'
+            down_color='#ed4807',
+            scale_margin_top=0.8
         )
         
+        # Crosshair configuration
         chart.crosshair(
             mode='normal',
             vert_color='#FFFFFF',
             vert_style='dotted',
             horz_color='#FFFFFF',
-            horz_style='dotted'
+            horz_style='dotted',
+            vert_width=1,
+            horz_width=1
         )
         
-        chart.time_scale(right_offset=5, min_bar_spacing=10)
-        chart.grid(vert_enabled=False, horz_enabled=False)
+        # Time scale configuration
+        chart.time_scale(
+            right_offset=5,
+            min_bar_spacing=10,
+            visible=True,
+            time_visible=True,
+            seconds_visible=False
+        )
         
-        # Add data validation before setting
-        st.write("Debug - Chart data shape:", chart_data.shape)
-        st.write("Debug - Chart data columns:", chart_data.columns.tolist())
-        st.write("Debug - First row of chart data:", chart_data.iloc[0].to_dict())
+        # Grid configuration
+        chart.grid(
+            vert_enabled=False,
+            horz_enabled=False
+        )
         
-        chart.set(chart_data)
+        # Try setting data with explicit error catching
+        try:
+            chart.set(formatted_data)
+            st.write("Debug - Data successfully set to chart")
+        except Exception as e:
+            st.error(f"Error setting chart data: {str(e)}")
+            return None
+
         return chart
         
     except Exception as e:
         st.error(f"Error creating chart for {name}: {str(e)}")
-        st.write("Debug - Chart creation error details:", str(e))
+        import traceback
+        st.write("Debug - Chart creation error traceback:", traceback.format_exc())
         return None
 
 # Page setup
