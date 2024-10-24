@@ -54,11 +54,14 @@ class UpstoxDataFetcher:
     def _process_candle_data(self, candles):
         processed_data = []
         for candle in candles:
-            # Ensure the timestamp is treated as an integer
-            timestamp = datetime.fromtimestamp(int(candle[0]) / 1000)  
+            # Parse the ISO 8601 timestamp
+            timestamp = datetime.fromisoformat(candle[0].replace('Z', '+00:00'))  # Ensure correct UTC format
+    
+            # Convert to Unix timestamp (if needed for charting)
+            unix_time = timestamp.timestamp()
     
             processed_data.append({
-                'time': timestamp.timestamp(),  # UNIX timestamp for the chart
+                'time': unix_time,  # Use Unix timestamp for charting
                 'open': float(candle[1]),
                 'high': float(candle[2]),
                 'low': float(candle[3]),
@@ -140,7 +143,7 @@ def main():
     # Date range selection
     start_date = st.sidebar.date_input(
         "Start Date",
-        datetime.now() - timedelta(days=30)
+        datetime.now() - timedelta(days=365)
     )
     
     # Initialize Upstox client
