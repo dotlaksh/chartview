@@ -12,32 +12,44 @@ class UpstoxDataFetcher:
         }
     
     def get_instrument_key(self, isin):
-        return f"NSE_EQ-{isin}"
+        return f"NSE_EQ|{isin}"
     
     def get_historical_data(self, isin, interval='day', start_date=None):
-        if start_date is None:
-            start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
-            
-        instrument_key = self.get_instrument_key(isin)
-        url = f'{self.base_url}/historical-candle/{instrument_key}/{interval}/{start_date}'
-        st.write(url)
+    if start_date is None:
+        start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
         
-        try:
-            response = requests.get(url, headers=self.headers)
-            
-            if response.status_code == 200:
-                data = response.json()
-                if 'data' in data and 'candles' in data['data']:
-                    return self._process_candle_data(data['data']['candles'])
-                else:
-                    st.error("No data available for the selected stock")
-                    return None
+    # Correct instrument key formatting
+    instrument_key = self.get_instrument_key(isin)
+    url = f'{self.base_url}/historical-candle/{instrument_key}/{interval}/{start_date}'
+    
+    try:
+        st.write(f"Fetching data from: {url}")  # Debug log for the request URL
+
+        response = requests.get(url, headers=self.headers)
+
+        if response.status_code == 200:
+            data = response.json()
+            if 'data' in data and 'candles' in data['data']:
+                return self._process_candle_data(data['data']['candles'])
             else:
-                st.error("Error fetching data. Please try another stock or date range.")
+                st.warning("No data available for the selected stock or date range.")
                 return None
-        except Exception as e:
-            st.error(f"Error: {str(e)}")
+        elif response.status_code == 404:
+            st.error("Stock not found. Please verify the symbol and try again.")
             return None
+        elif response.status_code in [401, 403]:
+            st.error("API authorization error. Please check your API token.")
+            return None
+        else:
+            st.error(f"Unexpected error: {response.status_code}")
+            return None
+    except requests.exceptions.RequestException as e:
+        st.error(f"Network error: {str(e)}")
+        return None
+    except Exception as e:
+        st.error(f"Unexpected error: {str(e)}")
+        return None
+
     
     def _process_candle_data(self, candles):
         processed_data = []
