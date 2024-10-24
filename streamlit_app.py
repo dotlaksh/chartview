@@ -172,8 +172,8 @@ with st.sidebar:
 
         # First chart
         with col1:
-            with st.spinner(f"Loading {stocks_df['isin'].iloc[i]}..."):  # Assuming the column is named 'isin'
-                instrument_key = stocks_df['isin'].iloc[i]
+            with st.spinner(f"Loading {stocks_df['ISIN'].iloc[i]}..."):  # Assuming the column is named 'isin'
+                instrument_key = stocks_df['ISIN'].iloc[i]
                 name = f"Stock {i + 1}"  # Replace with appropriate stock name if available
                 chart_data, current_price, volume, daily_change = load_chart_data(instrument_key)
                 if chart_data is not None:
@@ -184,8 +184,8 @@ with st.sidebar:
         # Second chart (if available)
         with col2:
             if i + 1 < end_idx:
-                with st.spinner(f"Loading {stocks_df['isin'].iloc[i + 1]}..."):
-                    instrument_key = stocks_df['isin'].iloc[i + 1]
+                with st.spinner(f"Loading {stocks_df['ISIN'].iloc[i + 1]}..."):
+                    instrument_key = stocks_df['ISIN'].iloc[i + 1]
                     name = f"Stock {i + 2}"  # Replace with appropriate stock name if available
                     chart_data, current_price, volume, daily_change = load_chart_data(instrument_key)
                     if chart_data is not None:
