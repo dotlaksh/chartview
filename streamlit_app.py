@@ -109,16 +109,19 @@ def load_chart_data(instrument_key):
         return None, None, None, None
 
 def create_chart(chart_data, name, instrument_key, current_price, volume, daily_change):
-    if chart_data is None or chart_data.empty:
+    # Check if chart_data is empty
+    if not chart_data:  # Use this instead of 'chart_data.empty'
         st.warning(f"No chart data available for {name}")
         return None
 
     try:
-        formatted_data = chart_data.to_dict('records')
-        st.write("Debug - Formatted chart data sample:", formatted_data[0])
+        # Print a sample of the chart data for debugging
+        st.write("Debug - Formatted chart data sample:", chart_data[0])
 
+        # Initialize the chart
         chart = StreamlitChart(height=450)
 
+        # Display stock info
         change_color = '#00ff55' if daily_change >= 0 else '#ed4807'
         change_symbol = '▲' if daily_change >= 0 else '▼'
 
@@ -131,14 +134,18 @@ def create_chart(chart_data, name, instrument_key, current_price, volume, daily_
         </div>
         """, unsafe_allow_html=True)
 
-        chart.layout(background_color='#1E222D', text_color='#FFFFFF', font_size=12, font_family='Helvetica')
+        # Configure the chart layout and appearance
+        chart.layout(background_color='#1E222D', text_color='#FFFFFF', font_size=12)
         chart.candle_style(up_color='#00ff55', down_color='#ed4807', wick_up_color='#00ff55', wick_down_color='#ed4807')
         chart.volume_config(up_color='#00ff55', down_color='#ed4807')
         chart.crosshair(mode='normal', vert_color='#FFFFFF', horz_color='#FFFFFF')
         chart.time_scale(visible=True, time_visible=True)
         chart.grid(vert_enabled=False, horz_enabled=False)
 
-        chart.set(formatted_data)
+        # Set the data to the chart
+        chart.set(chart_data)
+        st.write("Debug - Data successfully set to chart")
+
         return chart
 
     except Exception as e:
@@ -146,6 +153,7 @@ def create_chart(chart_data, name, instrument_key, current_price, volume, daily_
         import traceback
         st.write("Debug - Chart creation error traceback:", traceback.format_exc())
         return None
+
 
 # Page setup
 st.set_page_config(layout="wide", page_title="ChartView 2.0", page_icon="📈")
