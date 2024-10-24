@@ -165,8 +165,7 @@ def create_chart(chart_data, name, instrument_key, current_price, volume, daily_
         
         # Initialize chart with explicit configuration
         chart = StreamlitChart(
-            height=450,
-            key=f"chart_{instrument_key}"  # Add unique key for each chart
+            height=450
         )
 
         # Info display
