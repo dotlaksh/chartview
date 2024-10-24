@@ -39,7 +39,7 @@ def load_chart_data(symbol, time_period='1mo', interval='day'):
 
 # Streamlit Sidebar for user input
 st.sidebar.header("Select Options")
-symbol = st.sidebar.text_input("Enter Stock Symbol", value="INE848E01016")
+symbol = st.sidebar.text_input("Enter Stock Symbol", value="INFY")
 interval = st.sidebar.selectbox("Select Interval", ['day', 'week', 'month'])
 time_period = st.sidebar.selectbox("Select Time Period", ['1mo', '1yr'])
 
