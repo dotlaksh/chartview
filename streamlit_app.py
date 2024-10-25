@@ -98,7 +98,7 @@ def load_chart_data(symbol):
 
 def create_chart(chart_data, name, symbol, current_price, volume, daily_change, pivot_points):
     if chart_data is not None:
-        chart_height = 450
+        chart_height = 500
         chart = StreamlitChart(height=chart_height)
 
         change_color = '#00ff55' if daily_change >= 0 else '#ed4807'
@@ -212,7 +212,7 @@ if selected_table:
         stocks_df = stocks_df[stocks_df['stock_name'].str.contains(search_term, case=False) | 
                               stocks_df['symbol'].str.contains(search_term, case=False)]
     
-    CHARTS_PER_PAGE = 12
+    CHARTS_PER_PAGE = 2
     total_pages = math.ceil(len(stocks_df) / CHARTS_PER_PAGE)
 
     # Pagination controls
