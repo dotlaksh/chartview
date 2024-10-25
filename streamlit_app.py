@@ -165,7 +165,7 @@ def create_chart(chart_data, name, symbol, current_price, volume, daily_change, 
         chart.time_scale(right_offset=5, min_bar_spacing=10)
         chart.grid(vert_enabled=False, horz_enabled=False)  
         chart.legend(visible=True, font_size=14)
-        chart.topbar.switcher('timeframe', ('1d', 'Wk', 'mo'), default='1d',
+        chart.topbar.switcher('timeframe', ('1d', '1Wk', '1mo'), default='1d',
                           func=on_timeframe_selection)
         chart.set(chart_data)
         chart.load()
