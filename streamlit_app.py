@@ -185,14 +185,11 @@ with st.sidebar:
         st.session_state.current_page = 1
         st.session_state.last_selected_table = st.session_state.selected_table
 
-    search_term = st.text_input("🔍 Search for a stock:")
 
 # Main content
 if selected_table:
     stocks_df = get_stocks_from_table(selected_table)
-    if search_term:
-        stocks_df = stocks_df[stocks_df['stock_name'].str.contains(search_term, case=False)]
-
+    
     CHARTS_PER_PAGE = 1
     total_pages = math.ceil(len(stocks_df) / CHARTS_PER_PAGE)
 
