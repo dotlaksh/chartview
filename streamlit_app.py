@@ -159,8 +159,10 @@ def create_chart(chart_data, name, symbol, current_price, volume, daily_change, 
         chart.time_scale(right_offset=5, min_bar_spacing=10)
         chart.grid(vert_enabled=False, horz_enabled=False)  
         chart.legend(visible=True, font_size=14)
-        chart.topbar.textbox('symbol', name)
-        chart.topbar.textbox('current_price', f'₹{current_price:.2f}')
+        chart.topbar.textbox('symbol', name,align='left')
+        chart.topbar.textbox('current_price', f'₹{current_price:.2f}',align='left')
+        chart.topbar.textbox('daily_change', f'{change_symbol} {abs(daily_change):.2f}%',align='left')
+        chart.topbar.textbox('volume', f'{volume:,.0f}',align='left')
         chart.set(chart_data)
         chart.load()
     else:
