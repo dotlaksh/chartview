@@ -219,7 +219,7 @@ if selected_table:
         
         with col2:
             st.markdown(f"""
-                <div style='text-align: center; padding: 8px 0;'>
+                <div style='text-align: center; padding: 5px 0;'>
                     Page {st.session_state.current_page} of {total_pages}
                 </div>
             """, unsafe_allow_html=True)
