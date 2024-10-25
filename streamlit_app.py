@@ -129,7 +129,7 @@ def create_chart(chart_data, name, symbol, current_price, volume, daily_change, 
 
         chart.volume_config(up_color='#00ff55', down_color='#ed4807')
         chart.crosshair(mode='normal')
-        chart.time_scale(right_offset=5, min_bar_spacing=10)
+        chart.time_scale(right_offset=5, min_bar_spacing=5)
         chart.grid(vert_enabled=False, horz_enabled=False)  
         chart.legend(visible=True, font_size=14)
         chart.topbar.textbox('symbol', name,align='left')
