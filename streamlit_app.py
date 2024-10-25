@@ -45,7 +45,7 @@ def fetch_stock_data(ticker, retries=3, delay=1):
             stock = yf.Ticker(ticker)
             
             # Get historical data
-            df = stock.history(period='ytd', interval='1d')
+            df = stock.history(period='ytd', interval='1w')
             
             if df.empty:
                 raise ValueError("No data received from Yahoo Finance")
