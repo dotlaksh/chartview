@@ -34,6 +34,22 @@ def calculate_pivot_points(high, low, close):
     pivot = (high + low + close) / 3
     return {'P': round(pivot, 2)}
 
+def format_volume(volume):
+    """
+    Format volume to display in M or K
+    Examples:
+    1,500,000 -> 1.5M
+    150,000 -> 150K
+    1,000 -> 1K
+    """
+    if volume >= 1_000_000:
+        return f'{volume/1_000_000:.1f}M'
+    elif volume >= 1_000:
+        return f'{volume/1_000:.0f}K'
+    else:
+        return str(volume)
+
+
 @st.cache_data(ttl=300)  # Cache for 5 minutes
 def fetch_stock_data(ticker, retries=3, delay=1):
     """
@@ -123,7 +139,9 @@ def create_chart(chart_data, name, symbol, current_price, volume, daily_change, 
         change_symbol = '+' if daily_change >= 0 else '-'
         chart.layout(background_color='#1E222D', text_color='#FFFFFF', font_size=12, font_family='Helvetica')
         chart.candle_style(up_color='#00ff55', down_color='#ed4807', wick_up_color='#00ff55', wick_down_color='#ed4807')
-
+        # Format volume
+        formatted_volume = format_volume(volume)
+        
         if pivot_points:
             chart.horizontal_line(pivot_points['P'], color='#39FF14', width=1)
 
@@ -134,7 +152,7 @@ def create_chart(chart_data, name, symbol, current_price, volume, daily_change, 
         chart.legend(visible=True, font_size=12)
         chart.topbar.textbox(
             'info',
-            f'{symbol} | ₹{current_price:.2f} | {change_symbol}{abs(daily_change):.2f}% | Vol: {volume:,.0f}'
+            f'{symbol} | ₹{current_price:.2f} | {change_symbol}{abs(daily_change):.2f}% | Vol: {formatted_volume}'
         )
         chart.price_line(label_visible=True,line_visible=True)
         chart.fit()
