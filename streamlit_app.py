@@ -34,6 +34,12 @@ def calculate_pivot_points(high, low, close):
     pivot = (high + low + close) / 3
     return {'P': round(pivot, 2)}
 
+def on_timeframe_selection(chart):  # Called when the user changes the timeframe.
+    new_data = get_bar_data(chart.topbar['symbol'].value, chart.topbar['timeframe'].value)
+    if new_data.empty:
+        return
+    chart.set(new_data, True)
+
 @st.cache_data(ttl=300)  # Cache for 5 minutes
 def fetch_stock_data(ticker, retries=3, delay=1):
     """
@@ -159,6 +165,8 @@ def create_chart(chart_data, name, symbol, current_price, volume, daily_change, 
         chart.time_scale(right_offset=5, min_bar_spacing=10)
         chart.grid(vert_enabled=False, horz_enabled=False)  
         chart.legend(visible=True, font_size=14)
+        chart.topbar.switcher('timeframe', ('1d', 'Wk', 'mo'), default='1d',
+                          func=on_timeframe_selection)
         chart.set(chart_data)
         chart.load()
     else:
