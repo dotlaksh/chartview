@@ -144,7 +144,7 @@ def create_chart(chart_data, name, symbol, current_price, volume, daily_change, 
         st.warning("No data available.")
 
 # Initial page config
-st.set_page_config(layout="centered", page_title="ChartView 2.0", page_icon="📈")
+st.set_page_config(layout="wide", page_title="ChartView 2.0", page_icon="📈")
 
 # Global styles
 st.markdown("""
