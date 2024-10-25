@@ -136,6 +136,7 @@ def create_chart(chart_data, name, symbol, current_price, volume, daily_change, 
         chart.topbar.textbox('current_price', f'₹{current_price:.2f}')
         chart.topbar.textbox('daily_change', f'{change_symbol} {abs(daily_change):.2f}%')
         chart.topbar.textbox('volume', f'{volume:,.0f}')
+        chart.price_line(label_visible=True,line_visible=True)
         chart.fit()
         chart.set(chart_data)
         chart.load()
