@@ -158,6 +158,7 @@ def create_chart(chart_data, name, symbol, current_price, volume, daily_change, 
         chart.crosshair(mode='normal')
         chart.time_scale(right_offset=5, min_bar_spacing=10)
         chart.grid(vert_enabled=False, horz_enabled=False)  
+        chart.legend(visible=True, font_size=14)
         chart.set(chart_data)
         chart.load()
     else:
