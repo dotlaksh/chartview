@@ -107,14 +107,31 @@ def load_chart_data(symbol):
 
             # Add additional error checking for financial calculations
             try:
-                current_price = df['Close'].iloc[-1]
-                if len(df) > 1:
-                    daily_change = ((current_price - df['Close'].iloc[-2]) / df['Close'].iloc[-2]) * 100
+                # Get today's and yesterday's dates
+                today = pd.Timestamp.now().strftime('%Y-%m-%d')
+                
+                # Get today's data
+                today_data = df[df['Date'].dt.strftime('%Y-%m-%d') == today]
+                
+                # If no data for today (e.g., market holiday or weekend),
+                # use the latest available day
+                if today_data.empty:
+                    current_price = df['Close'].iloc[-1]
+                    prev_close = df['Close'].iloc[-2] if len(df) > 1 else current_price
                 else:
-                    daily_change = 0
+                    # Get today's index
+                    today_idx = df[df['Date'].dt.strftime('%Y-%m-%d') == today].index[0]
+                    current_price = df['Close'].iloc[today_idx]
+                    prev_close = df['Close'].iloc[today_idx - 1] if today_idx > 0 else current_price
+
+                # Calculate daily change
+                daily_change = ((current_price - prev_close) / prev_close) * 100
+                
+                # Get latest volume
                 volume = df['Volume'].iloc[-1]
-            except (IndexError, ZeroDivisionError):
-                st.warning(f"Unable to calculate some metrics for {symbol}")
+
+            except (IndexError, ZeroDivisionError) as e:
+                st.warning(f"Unable to calculate metrics for {symbol}. Error: {str(e)}")
                 current_price = df['Close'].iloc[-1] if not df['Close'].empty else 0
                 daily_change = 0
                 volume = 0
