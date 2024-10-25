@@ -6,6 +6,10 @@ from lightweight_charts.widgets import StreamlitChart
 from contextlib import contextmanager
 import math
 from datetime import datetime, timedelta
+import time
+import requests
+from requests.exceptions import RequestException
+
 
 @contextmanager
 def get_db_connection():
@@ -30,11 +34,41 @@ def calculate_pivot_points(high, low, close):
     pivot = (high + low + close) / 3
     return {'P': round(pivot, 2)}
 
+@st.cache_data(ttl=300)  # Cache for 5 minutes
+def fetch_stock_data(ticker, retries=3, delay=1):
+    """
+    Fetch stock data with retry mechanism and proper error handling
+    """
+    for attempt in range(retries):
+        try:
+            # Create a yfinance Ticker object
+            stock = yf.Ticker(ticker)
+            
+            # Get historical data
+            df = stock.history(period='ytd', interval='1d')
+            
+            if df.empty:
+                raise ValueError("No data received from Yahoo Finance")
+            
+            return df
+            
+        except (RequestException, ValueError, Exception) as e:
+            if attempt == retries - 1:  # Last attempt
+                st.error(f"Failed to fetch data for {ticker} after {retries} attempts. Error: {str(e)}")
+                return None
+            time.sleep(delay)  # Wait before retrying
+            delay *= 2  # Exponential backoff
+
 def load_chart_data(symbol):
     ticker = f"{symbol}.NS"
     try:
-        df = yf.download(ticker, period='ytd', interval='1d')
-        df.reset_index(inplace=True)
+        # Use the new fetch function with retry mechanism
+        df = fetch_stock_data(ticker)
+        
+        if df is None:
+            return None, None, None, None, None
+            
+        df = df.reset_index()
 
         if not df.empty:
             prev_month = (datetime.now().replace(day=1) - timedelta(days=1)).strftime('%Y-%m')
@@ -48,18 +82,38 @@ def load_chart_data(symbol):
 
             chart_data = pd.DataFrame({
                 "time": df["Date"].dt.strftime("%Y-%m-%d"),
-                "open": df["Open"], "high": df["High"],
-                "low": df["Low"], "close": df["Close"],
+                "open": df["Open"], 
+                "high": df["High"],
+                "low": df["Low"], 
+                "close": df["Close"],
                 "volume": df["Volume"]
             })
 
-            current_price = df['Close'].iloc[-1]
-            daily_change = ((current_price - df['Close'].iloc[-2]) / df['Close'].iloc[-2]) * 100
-            volume = df['Volume'].iloc[-1]
+            # Add additional error checking for financial calculations
+            try:
+                current_price = df['Close'].iloc[-1]
+                if len(df) > 1:
+                    daily_change = ((current_price - df['Close'].iloc[-2]) / df['Close'].iloc[-2]) * 100
+                else:
+                    daily_change = 0
+                volume = df['Volume'].iloc[-1]
+            except (IndexError, ZeroDivisionError):
+                st.warning(f"Unable to calculate some metrics for {symbol}")
+                current_price = df['Close'].iloc[-1] if not df['Close'].empty else 0
+                daily_change = 0
+                volume = 0
 
             return chart_data, current_price, volume, daily_change, pivot_points
+            
     except Exception as e:
-        print(f"Error: {e}")
+        st.error(f"""
+            Error loading data for {symbol}. This could be due to:
+            - Temporary connection issues with Yahoo Finance
+            - Rate limiting
+            - Invalid symbol
+            
+            Please try again in a few moments. Error: {str(e)}
+        """)
     return None, None, None, None, None
 
 def create_chart(chart_data, name, symbol, current_price, volume, daily_change, pivot_points):
