@@ -437,10 +437,7 @@ for i in range(start_idx, end_idx, 3):
                 name = stocks_df['comp_name'].iloc[i]
                 industry = stocks_df['industry'].iloc[i]
                 chart_data, current_price, volume, daily_change = load_chart_data(
-                    symbol, 
-                    TIME_PERIODS[selected_period],
-                    INTERVALS[selected_interval]
-                )
+                    symbol, selected_period,selected_interval)
                 if chart_data is not None:
                     chart = create_chart(chart_data, name, symbol, current_price, volume, 
                                       daily_change, industry)
