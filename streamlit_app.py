@@ -119,40 +119,11 @@ def load_chart_data(symbol):
 def create_chart(chart_data, name, symbol, current_price, volume, daily_change, pivot_points):
     if chart_data is not None:
         chart = StreamlitChart(height=480)  # Fixed height in pixels
-        
-        change_color = '#00ff55' if daily_change >= 0 else '#ed4807'
-        change_symbol = '▲' if daily_change >= 0 else '▼'
-
-        st.markdown(f"""
-        <style>
-            .stock-info {{
-                padding: 10px;
-                margin-bottom: 10px;
-                font-size: 18px;
-                white-space: nowrap;
-                overflow-x: auto;
-            }}
-            @media (max-width: 768px) {{
-                .stock-info {{
-                    font-size: 14px;
-                    padding: 5px;
-                }}
-            }}
-        </style>
-        <div class="stock-info">
-            <span style='font-weight: bold;'>{name}</span>
-            <span style='color: #00ff55;'>₹{current_price:.2f}</span> | 
-            <span style='color: {change_color};'>{change_symbol} {abs(daily_change):.2f}%</span> | 
-            Vol: {volume:,.0f}
-        </div>
-        """, unsafe_allow_html=True)
-
         chart.layout(background_color='#1E222D', text_color='#FFFFFF', font_size=12, font_family='Helvetica')
         chart.candle_style(up_color='#00ff55', down_color='#ed4807', wick_up_color='#00ff55', wick_down_color='#ed4807')
 
         if pivot_points:
             chart.horizontal_line(pivot_points['P'], color='#39FF14', width=1)
-
 
         chart.volume_config(up_color='#00ff55', down_color='#ed4807')
         chart.crosshair(mode='normal')
