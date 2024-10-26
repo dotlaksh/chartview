@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 import time
 import requests
 from requests.exceptions import RequestException
+from streamlit_extras.row import row
 
 # Time period and interval mappings
 TIME_PERIODS = {
@@ -252,69 +253,81 @@ if selected_table:
         )
         create_chart(chart_data, stock['stock_name'], stock['symbol'], current_price, volume, daily_change, pivot_points)
 
-    # Combined controls row
-    container = st.container()
-    with container:
-        cols = st.columns([0.1, 0.1, 0.1, 0.1, 0.1, 0.1])
-        
-        # Previous button
-        with cols[0]:
-            st.button(
-                "← ", 
-                disabled=(st.session_state.current_page == 1), 
-                on_click=lambda: setattr(st.session_state, 'current_page', st.session_state.current_page - 1),
-                key="prev_button",
-                use_container_width=True
-            )
-        
-        # Page indicator
-        with cols[1]:
-            st.markdown(f"""
-                <div style='text-align: center; padding: 5px 0;'>
-                    Page {st.session_state.current_page} of {total_pages}
-                </div>
-            """, unsafe_allow_html=True)
-        
-        # Next button
-        with cols[2]:
-            st.button(
-                "→", 
-                disabled=(st.session_state.current_page == total_pages), 
-                on_click=lambda: setattr(st.session_state, 'current_page', st.session_state.current_page + 1),
-                key="next_button",
-                use_container_width=True
-            )
-        
-        # Time period selector
-        with cols[4]:
-            new_period = st.selectbox(
-                "Time Period:",
-                list(TIME_PERIODS.keys()),
-                index=list(TIME_PERIODS.keys()).index(st.session_state.selected_period),
-                key="period_selector",
-                label_visibility="collapsed"
-            )
-            if new_period != st.session_state.selected_period:
-                st.session_state.selected_period = new_period
-                st.rerun()
-        
-        # Interval selector
-        with cols[5]:
-            new_interval = st.selectbox(
-                "Interval:",
-                list(INTERVALS.keys()),
-                index=list(INTERVALS.keys()).index(st.session_state.selected_interval),
-                key="interval_selector",
-                label_visibility="collapsed"
-            )
-            if new_interval != st.session_state.selected_interval:
-                st.session_state.selected_interval = new_interval
-                st.rerun()
 
-# Footer
-st.markdown("---")
+# Add custom CSS to create a fixed bottom navbar
 st.markdown("""
-    <div style='text-align: center; padding: 10px; font-size: 12px;'>
-        Developed by Laksh | Data from Yahoo Finance
-    </div>
+<style>
+    .bottom-navbar {
+        position: fixed;
+        bottom: 0;
+        width: 100%;
+        background-color: #333;
+        color: #fff;
+        padding: 10px;
+        text-align: center;
+    }
+</style>
 """, unsafe_allow_html=True)
+
+# Create the bottom navbar
+bottom_navbar = st.container()
+with bottom_navbar:
+    cols = st.columns([1, 1, 1, 1, 2, 2])
+    
+    # Previous button
+    with cols[0]:
+        st.button(
+            "← ", 
+            disabled=(st.session_state.current_page == 1), 
+            on_click=lambda: setattr(st.session_state, 'current_page', st.session_state.current_page - 1),
+            key="prev_button",
+            use_container_width=True
+        )
+    
+    # Page indicator
+    with cols[1]:
+        st.markdown(f"""
+            <div style='text-align: center; padding: 5px 0;'>
+                Page {st.session_state.current_page} of {total_pages}
+            </div>
+        """, unsafe_allow_html=True)
+    
+    # Next button
+    with cols[2]:
+        st.button(
+            "→", 
+            disabled=(st.session_state.current_page == total_pages), 
+            on_click=lambda: setattr(st.session_state, 'current_page', st.session_state.current_page + 1),
+            key="next_button",
+            use_container_width=True
+        )
+    
+    # Spacer
+    with cols[3]:
+        st.empty()
+    
+    # Time period selector
+    with cols[4]:
+        new_period = st.selectbox(
+            "Time Period:",
+            list(TIME_PERIODS.keys()),
+            index=list(TIME_PERIODS.keys()).index(st.session_state.selected_period),
+            key="period_selector",
+            label_visibility="collapsed"
+        )
+        if new_period != st.session_state.selected_period:
+            st.session_state.selected_period = new_period
+            st.rerun()
+    
+    # Interval selector
+    with cols[5]:
+        new_interval = st.selectbox(
+            "Interval:",
+            list(INTERVALS.keys()),
+            index=list(INTERVALS.keys()).index(st.session_state.selected_interval),
+            key="interval_selector",
+            label_visibility="collapsed"
+        )
+        if new_interval != st.session_state.selected_interval:
+            st.session_state.selected_interval = new_interval
+            st.rerun()
