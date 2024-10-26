@@ -241,7 +241,7 @@ if selected_table:
     # Pagination with improved mobile layout
     container = st.container()
     with container:
-        col1, col2, col3 = st.columns([2, 3, 2])
+        col1, col2, col3 = st.columns([1, 3, 1])
         
         with col1:
             st.button(
