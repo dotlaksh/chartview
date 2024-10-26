@@ -222,51 +222,103 @@ with st.sidebar:
 
 
 # Main content
-if selected_table:
-    stocks_df = get_stocks_from_table(selected_table)
-    
-    CHARTS_PER_PAGE = 1
-    total_pages = math.ceil(len(stocks_df) / CHARTS_PER_PAGE)
-
-    if 'current_page' not in st.session_state:
-        st.session_state.current_page = 1
-
-    start_idx = (st.session_state.current_page - 1) * CHARTS_PER_PAGE
-    stock = stocks_df.iloc[start_idx]
-
-    with st.spinner(f"Loading {stock['stock_name']}..."):
-        chart_data, current_price, volume, daily_change, pivot_points = load_chart_data(stock['symbol'])
-        create_chart(chart_data, stock['stock_name'], stock['symbol'], current_price, volume, daily_change, pivot_points)
-
-    # Pagination with improved mobile layout
-    container = st.container()
-    with container:
-        col1, col2, col3 = st.columns([1, 3, 1])
+    if selected_table:
+        stocks_df = get_stocks_from_table(selected_table)
         
-        with col1:
-            st.button(
-                "← Previous", 
-                disabled=(st.session_state.current_page == 1), 
-                on_click=lambda: setattr(st.session_state, 'current_page', st.session_state.current_page - 1),
-                key="prev_button",
-                use_container_width=True
-            )
-        
-        with col2:
-            st.markdown(f"""
-                <div style='text-align: center; padding: 5px 0;'>
-                    Page {st.session_state.current_page} of {total_pages}
+        CHARTS_PER_PAGE = 1
+        total_pages = math.ceil(len(stocks_df) / CHARTS_PER_PAGE)
+
+        if 'current_page' not in st.session_state:
+            st.session_state.current_page = 1
+
+        start_idx = (st.session_state.current_page - 1) * CHARTS_PER_PAGE
+        stock = stocks_df.iloc[start_idx]
+
+        with st.spinner(f"Loading {stock['stock_name']}..."):
+            chart_data, current_price, volume, daily_change, pivot_points = load_chart_data(stock['symbol'])
+            create_chart(chart_data, stock['stock_name'], stock['symbol'], current_price, volume, daily_change, pivot_points)
+
+        # Updated pagination with flex layout
+        st.markdown("""
+            <style>
+                .pagination-container {
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    gap: 10px;
+                    margin: 10px 0;
+                    flex-wrap: nowrap;
+                }
+                .pagination-button {
+                    background-color: #1E222D;
+                    color: white;
+                    border: 1px solid #404756;
+                    padding: 8px 16px;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    min-width: 100px;
+                    text-align: center;
+                }
+                .pagination-button:disabled {
+                    opacity: 0.5;
+                    cursor: not-allowed;
+                }
+                .pagination-info {
+                    padding: 0 15px;
+                    white-space: nowrap;
+                }
+                @media (max-width: 768px) {
+                    .pagination-container {
+                        padding: 0 5px;
+                    }
+                    .pagination-button {
+                        min-width: 80px;
+                        padding: 6px 12px;
+                        font-size: 14px;
+                    }
+                    .pagination-info {
+                        padding: 0 10px;
+                        font-size: 14px;
+                    }
+                }
+            </style>
+            <div class="pagination-container">
+                <button 
+                    class="pagination-button"
+                    onclick="document.querySelector('[data-testid=\'stFormSubmitButton\']').click()"
+                    {}
+                >
+                    ← Previous
+                </button>
+                <div class="pagination-info">
+                    Page {current} of {total}
                 </div>
-            """, unsafe_allow_html=True)
-        
-        with col3:
-            st.button(
-                "Next →", 
-                disabled=(st.session_state.current_page == total_pages), 
-                on_click=lambda: setattr(st.session_state, 'current_page', st.session_state.current_page + 1),
-                key="next_button",
-                use_container_width=True
-            )
+                <button 
+                    class="pagination-button"
+                    onclick="document.querySelector('[data-testid=\'stFormSubmitButton\']').click()"
+                    {}
+                >
+                    Next →
+                </button>
+            </div>
+        """.format(
+            'disabled style="opacity: 0.5"' if st.session_state.current_page == 1 else '',
+            'disabled style="opacity: 0.5"' if st.session_state.current_page == total_pages else '',
+            current=st.session_state.current_page,
+            total=total_pages
+        ), unsafe_allow_html=True)
+
+        # Hidden form for handling button clicks
+        with st.form(key='pagination_form'):
+            prev_clicked = st.form_submit_button('Previous', type='primary', style='display: none;')
+            next_clicked = st.form_submit_button('Next', type='primary', style='display: none;')
+            
+            if prev_clicked and st.session_state.current_page > 1:
+                st.session_state.current_page -= 1
+                st.rerun()
+            elif next_clicked and st.session_state.current_page < total_pages:
+                st.session_state.current_page += 1
+                st.rerun()
 
 # Footer
 st.markdown("---")
