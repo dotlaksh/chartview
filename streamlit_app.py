@@ -176,43 +176,6 @@ def create_chart(chart_data, name, symbol, current_price, volume, daily_change, 
 # Initial page config
 st.set_page_config(layout="wide", page_title="ChartView 2.0", page_icon="📈")
 
-# Global styles
-st.markdown("""
-    <style>
-        [data-testid="stSidebar"] {
-            min-width: 200px;
-            max-width: 300px;
-        }
-        @media (max-width: 768px) {
-            [data-testid="stSidebar"] {
-                min-width: 180px;
-            }
-            .stButton button {
-                padding: 0.3rem !important;
-                font-size: 12px !important;
-            }
-            div[data-testid="column"] {
-                padding: 0 0.2rem !important;
-            }
-        }
-        .stButton button {
-            width: 100%;
-            padding: 0.5rem;
-        }
-        div[data-testid="column"] {
-            padding: 0 0.5rem;
-        }
-        .control-row {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            margin-top: 1rem;
-        }
-        .control-row > div {
-            flex: 1;
-        }
-    </style>
-""", unsafe_allow_html=True)
 
 # Sidebar
 with st.sidebar:
@@ -253,21 +216,6 @@ if selected_table:
         )
         create_chart(chart_data, stock['stock_name'], stock['symbol'], current_price, volume, daily_change, pivot_points)
 
-
-# Add custom CSS to create a fixed bottom navbar
-st.markdown("""
-<style>
-    .bottom-navbar {
-        position: fixed;
-        bottom: 0;
-        width: 100%;
-        background-color: #333;
-        color: #fff;
-        padding: 10px;
-        text-align: center;
-    }
-</style>
-""", unsafe_allow_html=True)
 
 # Create the bottom navbar
 bottom_navbar = st.container()
