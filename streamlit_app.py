@@ -3,7 +3,7 @@ import pandas as pd
 import sqlite3
 import yfinance as yf
 from contextlib import contextmanager
-from lightweight_charts import Chart
+import plotly.graph_objs as go
 
 # Set wide layout and custom dark theme
 st.set_page_config(layout="wide", page_title="Stock Dashboard", page_icon="📈")
@@ -17,11 +17,10 @@ st.markdown("""
     .stButton > button { background-color: #2E3A46; color: white; }
     .stTextInput > div { background-color: #1E262F; color: white; }
     .metric-container { text-align: center; padding: 10px; }
-    .metric-header { font-size: 20px; }
     </style>
 """, unsafe_allow_html=True)
 
-# Database connection (your logic, no change)
+# Database connection (no change)
 @contextmanager
 def get_db_connection():
     conn = sqlite3.connect('stocks1.db', check_same_thread=False)
@@ -64,7 +63,7 @@ filtered_stocks = stocks_df[
     stocks_df["stock_name"].str.contains(search_term, case=False)
 ] if search_term else stocks_df
 
-# Pagination logic (no changes)
+# Pagination logic
 current_page = st.session_state.get('page', 1)
 stocks_per_page = 10
 total_pages = (len(filtered_stocks) - 1) // stocks_per_page + 1
@@ -73,7 +72,6 @@ start_index = (current_page - 1) * stocks_per_page
 end_index = start_index + stocks_per_page
 paginated_stocks = filtered_stocks.iloc[start_index:end_index]
 
-# Navigation controls (preserved logic)
 col1, col2, col3 = st.columns([1, 2, 1])
 
 with col1:
@@ -98,7 +96,7 @@ if not paginated_stocks.empty:
         price_change = current_price - prev_close
         price_change_pct = (price_change / prev_close) * 100
 
-        # Metric display for stock price and changes
+        # Display metrics for current stock
         st.markdown("<div class='metric-container'>", unsafe_allow_html=True)
         col1, col2 = st.columns([3, 1])
 
@@ -109,29 +107,37 @@ if not paginated_stocks.empty:
             st.metric(f"₹ {current_price:.2f}", f"{price_change_pct:.2f}%", delta_color="inverse")
         st.markdown("</div>", unsafe_allow_html=True)
 
-        # Candlestick and volume chart setup
-        chart = Chart(width="100%", height=450)
+        # Plotly candlestick and volume chart
+        fig = go.Figure()
 
-        candle_data = [
-            {
-                "time": int(row["Date"].timestamp()),
-                "open": row["Open"],
-                "high": row["High"],
-                "low": row["Low"],
-                "close": row["Close"]
-            }
-            for _, row in stock_data.iterrows()
-        ]
-        chart.set(series="candlestick", data=candle_data)
+        # Add candlestick trace
+        fig.add_trace(go.Candlestick(
+            x=stock_data['Date'],
+            open=stock_data['Open'],
+            high=stock_data['High'],
+            low=stock_data['Low'],
+            close=stock_data['Close'],
+            name='Candlestick'
+        ))
 
-        volume_data = [
-            {
-                "time": int(row["Date"].timestamp()),
-                "value": row["Volume"]
-            }
-            for _, row in stock_data.iterrows()
-        ]
-        chart.set(series="volume", data=volume_data, color="#00ff55" if price_change >= 0 else "#ed4807")
+        # Add volume bar trace
+        fig.add_trace(go.Bar(
+            x=stock_data['Date'],
+            y=stock_data['Volume'],
+            name='Volume',
+            marker_color='green' if price_change >= 0 else 'red',
+            opacity=0.3
+        ))
 
-        # Render chart
-        st.components.v1.html(chart.get(), height=500)
+        # Customize layout to match your desired theme
+        fig.update_layout(
+            template='plotly_dark',
+            height=500,
+            margin=dict(l=0, r=0, t=50, b=0),
+            xaxis_title='Date',
+            yaxis_title='Price',
+            yaxis=dict(side='right'),
+        )
+
+        # Render the chart in Streamlit
+        st.plotly_chart(fig, use_container_width=True)
