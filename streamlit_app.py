@@ -164,21 +164,31 @@ if selected_table:
     
     cols = st.columns(6)
 
+    # Determine the total number of buttons
+    total_buttons = len(TIME_PERIODS) + len(INTERVALS)
+    
+    # Create columns to accommodate all buttons
+    cols = st.columns(max(total_buttons, 6))  # Ensure at least 6 columns
+    
+    # Period section
     with cols[0]:
         st.markdown("**Period**")
     
+    # Place Period buttons
     for i, period in enumerate(TIME_PERIODS):
         with cols[i+1]:
             if st.button(period, key=f"period_{period}", use_container_width=True):
                 st.session_state.selected_period = period
-    
-    with cols[3]:
-        st.markdown("**Interval**")
-    
-    for i, interval in enumerate(INTERVALS):
-        with cols[i+4]:
-            if st.button(interval, key=f"interval_{interval}", use_container_width=True):
-                st.session_state.selected_interval = interval
+
+# Interval section
+with cols[len(TIME_PERIODS) + 1]:
+    st.markdown("**Interval**")
+
+# Place Interval buttons
+for i, interval in enumerate(INTERVALS):
+    with cols[len(TIME_PERIODS) + i + 2]:
+        if st.button(interval, key=f"interval_{interval}", use_container_width=True):
+            st.session_state.selected_interval = interval
 
 
     
