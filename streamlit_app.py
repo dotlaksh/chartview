@@ -180,15 +180,15 @@ if selected_table:
             if st.button(period, key=f"period_{period}", use_container_width=True):
                 st.session_state.selected_period = period
 
-# Interval section
-with cols[len(TIME_PERIODS) + 1]:
-    st.markdown("**Interval**")
-
-# Place Interval buttons
-for i, interval in enumerate(INTERVALS):
-    with cols[len(TIME_PERIODS) + i + 2]:
-        if st.button(interval, key=f"interval_{interval}", use_container_width=True):
-            st.session_state.selected_interval = interval
+    # Interval section
+    with cols[len(TIME_PERIODS) + 1]:
+        st.markdown("**Interval**")
+    
+    # Place Interval buttons
+    for i, interval in enumerate(INTERVALS):
+        with cols[len(TIME_PERIODS) + i + 2]:
+            if st.button(interval, key=f"interval_{interval}", use_container_width=True):
+                st.session_state.selected_interval = interval
 
 
     
