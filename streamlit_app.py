@@ -33,7 +33,8 @@ def get_stocks_from_table(table_name):
 
 @st.cache_data(ttl=300)
 def fetch_stock_data(ticker, period='ytd', interval='1d'):
-    stock = yf.Ticker(ticker)
+    symbol = yf.Ticker(ticker)
+    stock = f"{symbol}.NS"
     df = stock.history(period=period, interval=interval)
     if df.empty:
         st.warning(f"No data found for ticker {ticker}.")
