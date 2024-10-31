@@ -11,26 +11,59 @@ import time
 st.set_page_config(
     page_title="ChartView Mobile",
     page_icon="📈",
-    layout="centered",  # centers content on mobile screens
+    layout="wide",  # Use wide layout for better mobile responsiveness
     initial_sidebar_state="collapsed"
 )
 
-# --- Custom CSS for Modern Look ---
+# --- Custom CSS for Modern Mobile-First Design ---
 st.markdown("""
     <style>
     /* General layout */
-    .stApp { background-color: #181818; color: #e0e0e0; }
-    .css-1kyxreq { padding-top: 0.5rem; }  /* reduces header space */
+    .stApp { 
+        background-color: #181818; 
+        color: #e0e0e0; 
+        max-width: 600px;  /* Constrain width for mobile feel */
+        margin: 0 auto;
+    }
     
-    /* Sidebar styling */
-    .css-1d391kg { background-color: #202020; color: #e0e0e0; }  /* sidebar bg */
+    /* Compact header and spacing */
+    .css-1kyxreq { padding-top: 0.25rem; }
+    .stMarkdown { margin-bottom: 0.5rem; }
     
-    /* Buttons */
-    .stButton button { background-color: #292929; color: #00ff55; padding: 0.5rem 1rem; }
-    .selected-btn { background-color: #00ff55 !important; color: #000000 !important; }
+    /* Button styling - smaller and more compact */
+    .stButton>button { 
+        background-color: #292929; 
+        color: #00ff55; 
+        padding: 0.3rem 0.5rem;  /* Smaller padding */
+        font-size: 0.8rem;  /* Smaller font */
+        height: 2rem;  /* Fixed height for uniformity */
+        width: 100%;  /* Full width in column */
+    }
+    .stButton>button:hover {
+        background-color: #333;
+        color: #00ff55;
+    }
     
     /* Chart Top Bar Styling */
-    .top-bar { text-align: center; color: #00ff55; font-size: 1.1rem; font-weight: 600; }
+    .top-bar { 
+        text-align: center; 
+        color: #00ff55; 
+        font-size: 0.9rem; 
+        font-weight: 600; 
+        margin-bottom: 0.5rem;
+    }
+    
+    /* Compact form elements */
+    .stSelectbox, .stNumberInput { 
+        margin-bottom: 0.5rem; 
+    }
+    
+    /* Navigation buttons */
+    .nav-buttons { 
+        display: flex; 
+        justify-content: space-between; 
+        margin-top: 0.5rem;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -43,6 +76,8 @@ if 'selected_period' not in st.session_state:
     st.session_state.selected_period = '6M'
 if 'selected_interval' not in st.session_state:
     st.session_state.selected_interval = 'Daily'
+if 'current_stock_index' not in st.session_state:
+    st.session_state.current_stock_index = 0
 
 # --- Database Context ---
 @contextmanager
@@ -90,11 +125,11 @@ def load_chart_data(symbol, period, interval):
 # --- Create Chart ---
 def create_chart(chart_data, stock_name, price, volume):
     if chart_data is not None:
-        chart = StreamlitChart(height=450)
-        chart.layout(background_color='#1E222D', text_color='#e0e0e0', font_size=12, font_family='Helvetica')
+        chart = StreamlitChart(height=350)  # Reduced height for mobile
+        chart.layout(background_color='#1E222D', text_color='#e0e0e0', font_size=10, font_family='Helvetica')
         chart.candle_style(up_color='#00ff55', down_color='#ed4807', wick_up_color='#00ff55', wick_down_color='#ed4807')
         chart.time_scale(right_offset=5, min_bar_spacing=5)
-        chart.legend(visible=True, font_size=12)
+        chart.legend(visible=True, font_size=10)
         
         # Custom info bar
         st.markdown(f"<div class='top-bar'>{stock_name} | Price: ${price} | Volume: {volume}</div>", unsafe_allow_html=True)
@@ -104,43 +139,56 @@ def create_chart(chart_data, stock_name, price, volume):
     else:
         st.warning("No data available.")
 
-# --- Sidebar ---
-with st.sidebar:
-    st.title("📊 ChartView Mobile")
-    tables = get_tables()
-    selected_table = st.selectbox("Select a table:", tables, key="selected_table")
+# --- Main App ---
+st.title("📊 ChartView Mobile")
 
-# --- Display Selected Stock ---
+# --- Table and Stock Selection ---
+tables = get_tables()
+selected_table = st.selectbox("Select a Table:", tables)
+
 if selected_table:
     stocks_df = get_stocks_from_table(selected_table)
-    stock = stocks_df.iloc[0]  # Show only first stock for simplicity in mobile view
+    
+    # Pagination Logic
+    total_stocks = len(stocks_df)
+    st.session_state.current_stock_index = max(0, min(st.session_state.current_stock_index, total_stocks - 1))
+    
+    # Current Stock
+    current_stock = stocks_df.iloc[st.session_state.current_stock_index]
 
     # --- Time Period and Interval Buttons ---
-    with st.container():
-        st.markdown("<h3 style='text-align: center;'>Select Period & Interval</h3>", unsafe_allow_html=True)
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            for period in TIME_PERIODS:
-                if st.button(period, key=f"btn_{period}", use_container_width=True):
-                    st.session_state.selected_period = period
-        with col2:
-            for interval in INTERVALS:
-                if st.button(interval, key=f"btn_{interval}", use_container_width=True):
-                    st.session_state.selected_interval = interval
+    st.markdown("<h4 style='text-align: center;'>Select Period & Interval</h4>", unsafe_allow_html=True)
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("**Period**")
+        for period in TIME_PERIODS:
+            if st.button(period, key=f"period_{period}", use_container_width=True):
+                st.session_state.selected_period = period
+    
+    with col2:
+        st.markdown("**Interval**")
+        for interval in INTERVALS:
+            if st.button(interval, key=f"interval_{interval}", use_container_width=True):
+                st.session_state.selected_interval = interval
     
     # --- Load and Render Chart ---
-    with st.spinner(f"Loading {stock['stock_name']}..."):
+    with st.spinner(f"Loading {current_stock['stock_name']}..."):
         chart_data, current_price, volume = load_chart_data(
-            stock['symbol'],
+            current_stock['symbol'],
             TIME_PERIODS[st.session_state.selected_period],
             INTERVALS[st.session_state.selected_interval]
         )
-        create_chart(chart_data, stock['stock_name'], current_price, volume)
+        create_chart(chart_data, current_stock['stock_name'], current_price, volume)
 
-# --- Navigation --- 
-nav_col1, nav_col2 = st.columns([1, 1])
-with nav_col1:
-    st.button("Previous", use_container_width=True)
-with nav_col2:
-    st.button("Next", use_container_width=True)
+    # --- Navigation ---
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Previous", use_container_width=True, key="prev_btn"):
+            st.session_state.current_stock_index = (st.session_state.current_stock_index - 1) % total_stocks
+            st.experimental_rerun()
+    
+    with col2:
+        if st.button("Next", use_container_width=True, key="next_btn"):
+            st.session_state.current_stock_index = (st.session_state.current_stock_index + 1) % total_stocks
+            st.experimental_rerun()
