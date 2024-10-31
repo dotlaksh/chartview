@@ -161,6 +161,16 @@ if selected_table:
 
     # --- Time Period and Interval Buttons ---
     st.markdown("<h4 style='text-align: center;'>Select Period & Interval</h4>", unsafe_allow_html=True)
+    cols = st.columns(6)
+    with cols[0]:
+        st.markdown("**Period**")
+    
+    for i, (period, period_value) in enumerate(TIME_PERIODS.items(), start=1):
+        with cols[i]:
+            if st.button(period, key=f"period_{period}", use_container_width=True):
+                st.session_state.selected_period = period_value
+
+
     
     col1, col2 = st.columns(2)
     with col1:
