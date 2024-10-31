@@ -162,35 +162,18 @@ if selected_table:
     # --- Time Period and Interval Buttons ---
     st.markdown("<h4 style='text-align: center;'>Select Period & Interval</h4>", unsafe_allow_html=True)
     
-    cols = st.columns(6)
-
-    # Determine the total number of buttons
-    total_buttons = len(TIME_PERIODS) + len(INTERVALS)
-    
-    # Create columns to accommodate all buttons
-    cols = st.columns(max(total_buttons, 6))  # Ensure at least 6 columns
-    
-    # Period section
-    with cols[0]:
+    col1, col2 = st.columns(2)
+    with col1:
         st.markdown("**Period**")
-    
-    # Place Period buttons
-    for i, period in enumerate(TIME_PERIODS):
-        with cols[i+1]:
+        for period in TIME_PERIODS:
             if st.button(period, key=f"period_{period}", use_container_width=True):
                 st.session_state.selected_period = period
     
-    # Interval section
-    with cols[len(TIME_PERIODS) + 1]:
+    with col2:
         st.markdown("**Interval**")
-    
-    # Place Interval buttons
-    for i, interval in enumerate(INTERVALS):
-        col_index = len(TIME_PERIODS) + i + 2
-        if col_index < len(cols):  # Check if column index is valid
-            with cols[col_index]:
-                if st.button(interval, key=f"interval_{interval}", use_container_width=True):
-                    st.session_state.selected_interval = interval
+        for interval in INTERVALS:
+            if st.button(interval, key=f"interval_{interval}", use_container_width=True):
+                st.session_state.selected_interval = interval
 
 
     
