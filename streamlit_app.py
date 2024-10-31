@@ -176,7 +176,7 @@ if selected_table:
         st.markdown("**Interval**")
     
     for i, interval in enumerate(INTERVALS):
-        with cols[i+4]:
+        with cols[i+1]:
             if st.button(interval, key=f"interval_{interval}", use_container_width=True):
                 st.session_state.selected_interval = interval
 
