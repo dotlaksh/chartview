@@ -26,7 +26,8 @@ st.markdown("""
     .css-1d391kg { background-color: #202020; color: #e0e0e0; }  /* sidebar bg */
     
     /* Buttons */
-    .stButton button { background-color: #292929; color: #00ff55; padding: 0.6rem 1.5rem; }
+    .stButton button { background-color: #292929; color: #00ff55; padding: 0.5rem 1rem; }
+    .selected-btn { background-color: #00ff55 !important; color: #000000 !important; }
     
     /* Chart Top Bar Styling */
     .top-bar { text-align: center; color: #00ff55; font-size: 1.1rem; font-weight: 600; }
@@ -34,12 +35,14 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- Time Periods and Intervals ---
-TIME_PERIODS = {
-    '1M': '1mo', '3M': '3mo', '6M': '6mo', 'YTD': 'ytd', '1Y': '1y', '2Y': '2y', '5Y': '5y', 'MAX': 'max'
-}
-INTERVALS = {
-    'Daily': '1d', 'Weekly': '1wk', 'Monthly': '1mo'
-}
+TIME_PERIODS = {'6M': '6mo', '1Y': '1y', '5Y': '5y', 'MAX': 'max'}
+INTERVALS = {'Daily': '1d', 'Weekly': '1wk', 'Monthly': '1mo'}
+
+# --- Initialize Session State ---
+if 'selected_period' not in st.session_state:
+    st.session_state.selected_period = '6M'
+if 'selected_interval' not in st.session_state:
+    st.session_state.selected_interval = 'Daily'
 
 # --- Database Context ---
 @contextmanager
@@ -85,7 +88,7 @@ def load_chart_data(symbol, period, interval):
     return None, None, None
 
 # --- Create Chart ---
-def create_chart(chart_data, stock_name, price, volume, period, interval):
+def create_chart(chart_data, stock_name, price, volume):
     if chart_data is not None:
         chart = StreamlitChart(height=450)
         chart.layout(background_color='#1E222D', text_color='#e0e0e0', font_size=12, font_family='Helvetica')
@@ -112,32 +115,28 @@ if selected_table:
     stocks_df = get_stocks_from_table(selected_table)
     stock = stocks_df.iloc[0]  # Show only first stock for simplicity in mobile view
 
-    # --- Time Period and Interval Selectors ---
+    # --- Time Period and Interval Buttons ---
     with st.container():
         st.markdown("<h3 style='text-align: center;'>Select Period & Interval</h3>", unsafe_allow_html=True)
-        col1, col2 = st.columns([1, 1])
+        col1, col2 = st.columns(2)
         
         with col1:
-            selected_period = st.selectbox(
-                "Time Period", list(TIME_PERIODS.keys()),
-                index=list(TIME_PERIODS.keys()).index('YTD'),
-                label_visibility="collapsed"
-            )
+            for period in TIME_PERIODS:
+                if st.button(period, key=f"btn_{period}", use_container_width=True):
+                    st.session_state.selected_period = period
         with col2:
-            selected_interval = st.selectbox(
-                "Interval", list(INTERVALS.keys()),
-                index=list(INTERVALS.keys()).index('Daily'),
-                label_visibility="collapsed"
-            )
-
+            for interval in INTERVALS:
+                if st.button(interval, key=f"btn_{interval}", use_container_width=True):
+                    st.session_state.selected_interval = interval
+    
     # --- Load and Render Chart ---
     with st.spinner(f"Loading {stock['stock_name']}..."):
         chart_data, current_price, volume = load_chart_data(
             stock['symbol'],
-            TIME_PERIODS[selected_period],
-            INTERVALS[selected_interval]
+            TIME_PERIODS[st.session_state.selected_period],
+            INTERVALS[st.session_state.selected_interval]
         )
-        create_chart(chart_data, stock['stock_name'], current_price, volume, selected_period, selected_interval)
+        create_chart(chart_data, stock['stock_name'], current_price, volume)
 
 # --- Navigation --- 
 nav_col1, nav_col2 = st.columns([1, 1])
