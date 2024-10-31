@@ -189,9 +189,9 @@ if selected_table:
     with col1:
         if st.button("Previous", use_container_width=True, key="prev_btn"):
             st.session_state.current_stock_index = (st.session_state.current_stock_index - 1) % total_stocks
-            st.experimental_rerun()
+            st.rerun()
     
     with col2:
         if st.button("Next", use_container_width=True, key="next_btn"):
             st.session_state.current_stock_index = (st.session_state.current_stock_index + 1) % total_stocks
-            st.experimental_rerun()
+            st.rerun()
