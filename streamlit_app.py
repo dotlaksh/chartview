@@ -10,11 +10,16 @@ import time
 import requests
 from requests.exceptions import RequestException
 
-# Time period mappings
+# Time period mappings (matching chartz)
 TIME_PERIODS = {
+    '1M': '1mo',
+    '3M': '3mo',
+    '6M': '6mo',
+    'YTD': 'ytd',
     '1Y': '1y',
+    '2Y': '2y',
     '5Y': '5y',
-    'Max': 'max'
+    'MAX': 'max'
 }
 
 INTERVALS = {
@@ -98,26 +103,26 @@ def create_chart(chart_data, name, symbol, current_price, daily_change, volume):
     if chart_data is not None:
         chart = StreamlitChart(height=500)
         
-        # Style configuration matching the screenshot
+        # Style configuration matching chartz
         chart.layout(
             background_color='#1E222D',
-            text_color='#FFFFFF',
+            text_color='#D1D4DC',
             font_size=12,
             font_family='Inter'
         )
         
-        # Candlestick style
+        # Candlestick style matching chartz
         chart.candle_style(
-            up_color='#26A69A',
-            down_color='#EF5350',
-            wick_up_color='#26A69A',
-            wick_down_color='#EF5350'
+            up_color='#089981',
+            down_color='#F23645',
+            wick_up_color='#089981',
+            wick_down_color='#F23645'
         )
         
         # Volume style
         chart.volume_config(
-            up_color='rgba(38, 166, 154, 0.5)',
-            down_color='rgba(239, 83, 80, 0.5)'
+            up_color='rgba(8, 153, 129, 0.5)',
+            down_color='rgba(242, 54, 69, 0.5)'
         )
         
         # Other configurations
@@ -128,24 +133,16 @@ def create_chart(chart_data, name, symbol, current_price, daily_change, volume):
             visible=True
         )
         
-        # Updated grid configuration without horz_color
         chart.grid(
             vert_enabled=False,
             horz_enabled=True
         )
         
-        # Price formatting
+        # Format price and change
         formatted_price = f"₹{current_price:,.2f}"
-        change_color = '#26A69A' if daily_change >= 0 else '#EF5350'
         change_symbol = '+' if daily_change >= 0 else ''
         formatted_change = f"{change_symbol}{daily_change:.2f}%"
         formatted_volume = format_volume(volume)
-        
-        # Title and legend
-        chart.topbar.textbox(
-            'title',
-            f"{name} ({symbol}) {formatted_price} {formatted_change}"
-        )
         
         chart.legend(visible=True)
         chart.price_line(label_visible=True)
@@ -162,41 +159,123 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Custom CSS
+# Custom CSS to match chartz styling
 st.markdown("""
     <style>
     .stApp {
         background-color: #1E222D;
     }
-    .stSelectbox {
-        background-color: #2A2E39;
-        color: white;
+    
+    /* Header styling */
+    div[data-testid="stToolbar"] {
+        display: none;
     }
-    .stButton > button {
+    
+    .header-container {
         background-color: #2A2E39;
-        color: white;
-        border: 1px solid #363A45;
+        padding: 10px 20px;
+        margin: -1rem -1rem 1rem -1rem;
+        border-bottom: 1px solid #363A45;
     }
+    
+    .stock-info {
+        color: #D1D4DC;
+        font-size: 16px;
+        font-weight: 500;
+    }
+    
+    /* Control elements styling */
     .stSelectbox > div > div {
         background-color: #2A2E39;
+        border: 1px solid #363A45;
+        color: #D1D4DC;
     }
+    
     div[data-baseweb="select"] > div {
         background-color: #2A2E39 !important;
         border-color: #363A45 !important;
+        color: #D1D4DC !important;
+    }
+    
+    .stButton > button {
+        background-color: #2A2E39;
+        color: #D1D4DC;
+        border: 1px solid #363A45;
+        border-radius: 4px;
+        padding: 4px 12px;
+    }
+    
+    .stButton > button:hover {
+        background-color: #363A45;
+        border-color: #4A4E58;
+    }
+    
+    /* Period/interval buttons */
+    .time-controls {
+        display: flex;
+        gap: 8px;
+    }
+    
+    .time-controls button {
+        background-color: #2A2E39;
+        color: #D1D4DC;
+        border: 1px solid #363A45;
+        padding: 4px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    
+    .time-controls button.active {
+        background-color: #363A45;
+        border-color: #4A4E58;
+    }
+    
+    /* Navigation styling */
+    .navigation {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-top: 16px;
+        padding: 8px;
+        background-color: #2A2E39;
+        border-radius: 4px;
+    }
+    
+    /* Price display */
+    .price-display {
+        color: #D1D4DC;
+        font-size: 18px;
+        font-weight: bold;
+    }
+    
+    .price-change {
+        font-size: 14px;
+        margin-left: 8px;
+    }
+    
+    .price-change.positive {
+        color: #089981;
+    }
+    
+    .price-change.negative {
+        color: #F23645;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# Main interface
-col1, col2, col3 = st.columns([2, 8, 2])
+# Header
+st.markdown("""
+    <div class="header-container">
+        <div class="stock-info">
+            <select id="index-selector" style="background-color: #2A2E39; color: #D1D4DC; border: 1px solid #363A45; padding: 4px 8px; border-radius: 4px;">
+                <option value="NIFTY50">NIFTY 50</option>
+            </select>
+        </div>
+    </div>
+""", unsafe_allow_html=True)
 
-with col1:
-    selected_table = st.selectbox(
-        "Select Index",
-        get_tables(),
-        key="selected_table",
-        label_visibility="collapsed"
-    )
+# Main content area
+selected_table = st.selectbox("Select Index", get_tables(), label_visibility="collapsed")
 
 if selected_table:
     stocks_df = get_stocks_from_table(selected_table)
@@ -204,7 +283,7 @@ if selected_table:
     if 'current_page' not in st.session_state:
         st.session_state.current_page = 1
     if 'selected_period' not in st.session_state:
-        st.session_state.selected_period = '1Y'
+        st.session_state.selected_period = 'YTD'
     if 'selected_interval' not in st.session_state:
         st.session_state.selected_interval = 'D'
 
@@ -213,13 +292,28 @@ if selected_table:
     start_idx = (st.session_state.current_page - 1) * CHARTS_PER_PAGE
     stock = stocks_df.iloc[start_idx]
 
-    # Chart area
-    with st.container():
+    # Chart container
+    chart_container = st.container()
+    with chart_container:
         chart_data, current_price, daily_change, volume = load_chart_data(
             stock['symbol'],
             TIME_PERIODS[st.session_state.selected_period],
             INTERVALS[st.session_state.selected_interval]
         )
+        
+        # Price and change display
+        col1, col2 = st.columns([6, 4])
+        with col1:
+            change_class = "positive" if daily_change >= 0 else "negative"
+            st.markdown(f"""
+                <div class="price-display">
+                    ₹{current_price:,.2f}
+                    <span class="price-change {change_class}">
+                        {'+' if daily_change >= 0 else ''}{daily_change:.2f}%
+                    </span>
+                </div>
+            """, unsafe_allow_html=True)
+        
         create_chart(
             chart_data,
             stock['stock_name'],
@@ -229,42 +323,33 @@ if selected_table:
             volume
         )
 
-    # Bottom navigation
-    cols = st.columns([1, 1, 1, 4, 1, 1, 1])
+    # Time period and interval controls
+    col1, col2, col3 = st.columns([6, 2, 2])
     
-    with cols[0]:
+    with col1:
+        st.markdown('<div class="time-controls">', unsafe_allow_html=True)
+        for period in TIME_PERIODS.keys():
+            active_class = "active" if period == st.session_state.selected_period else ""
+            if st.button(period, key=f"period_{period}", help=f"Show {period} data"):
+                st.session_state.selected_period = period
+                st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # Navigation
+    nav_col1, nav_col2, nav_col3 = st.columns([1, 3, 1])
+    with nav_col1:
         if st.button("← Previous", disabled=(st.session_state.current_page == 1)):
             st.session_state.current_page -= 1
             st.rerun()
     
-    with cols[1]:
-        st.write(f"{st.session_state.current_page} / {total_pages}")
+    with nav_col2:
+        st.markdown(f"""
+            <div style="text-align: center; color: #D1D4DC;">
+                {st.session_state.current_page} / {total_pages}
+            </div>
+        """, unsafe_allow_html=True)
     
-    with cols[2]:
+    with nav_col3:
         if st.button("Next →", disabled=(st.session_state.current_page == total_pages)):
             st.session_state.current_page += 1
-            st.rerun()
-    
-    with cols[4]:
-        new_interval = st.selectbox(
-            "Interval",
-            list(INTERVALS.keys()),
-            index=list(INTERVALS.keys()).index(st.session_state.selected_interval),
-            key="interval_selector",
-            label_visibility="collapsed"
-        )
-        if new_interval != st.session_state.selected_interval:
-            st.session_state.selected_interval = new_interval
-            st.rerun()
-    
-    with cols[5]:
-        new_period = st.selectbox(
-            "Period",
-            list(TIME_PERIODS.keys()),
-            index=list(TIME_PERIODS.keys()).index(st.session_state.selected_period),
-            key="period_selector",
-            label_visibility="collapsed"
-        )
-        if new_period != st.session_state.selected_period:
-            st.session_state.selected_period = new_period
             st.rerun()
