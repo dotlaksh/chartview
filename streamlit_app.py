@@ -68,12 +68,12 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- Time Periods and Intervals ---
-TIME_PERIODS = {'6M': '6mo', '1Y': '1y', '5Y': '5y', 'MAX': 'max'}
+TIME_PERIODS = {'1Y': '1y', '5Y': '5y', 'MAX': 'max'}
 INTERVALS = {'Daily': '1d', 'Weekly': '1wk', 'Monthly': '1mo'}
 
 # --- Initialize Session State ---
 if 'selected_period' not in st.session_state:
-    st.session_state.selected_period = '6M'
+    st.session_state.selected_period = '1Y'
 if 'selected_interval' not in st.session_state:
     st.session_state.selected_interval = 'Daily'
 if 'current_stock_index' not in st.session_state:
