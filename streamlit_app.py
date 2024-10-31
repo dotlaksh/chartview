@@ -14,13 +14,15 @@ st.set_page_config(
     layout="wide",  # Use wide layout for better mobile responsiveness
     initial_sidebar_state="collapsed"
 )
-# CSS to hide Streamlit's default menu and footer
+# CSS to hide unwanted elements and adjust padding
 hide_streamlit_style = """
     <style>
-    /* Hide Streamlit header */
+    /* Hide Streamlit header, GitHub and Fork buttons */
     #MainMenu {visibility: hidden;}
     /* Hide Streamlit footer */
     footer {visibility: hidden;}
+    /* Remove extra padding at the top */
+    .block-container {padding-top: 0rem;}
     </style>
     """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
