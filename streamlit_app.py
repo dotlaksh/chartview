@@ -3,6 +3,7 @@ import pandas as pd
 import sqlite3
 import yfinance as yf
 from lightweight_charts.widgets import StreamlitChart
+from contextlib import contextmanager
 from datetime import datetime, timedelta
 import math
 import time
@@ -83,6 +84,15 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# Context manager for database connection
+@contextmanager
+def get_db_connection():
+    conn = sqlite3.connect('stocks1.db', check_same_thread=False)
+    try:
+        yield conn
+    finally:
+        conn.close()
+
 # Helper functions
 @st.cache_data(ttl=300)
 def fetch_stock_data(ticker, period='ytd', interval='1d', retries=3, delay=1):
@@ -145,13 +155,6 @@ def load_chart_data(symbol, period, interval):
     daily_change = ((current_price - prev_close) / prev_close) * 100
     volume = df['Volume'].iloc[-1]
     return chart_data, current_price, volume, daily_change, pivot_points
-
-def get_db_connection():
-    conn = sqlite3.connect('stocks1.db', check_same_thread=False)
-    try:
-        yield conn
-    finally:
-        conn.close()
 
 def get_tables():
     with get_db_connection() as conn:
