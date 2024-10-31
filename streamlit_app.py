@@ -7,19 +7,12 @@ from contextlib import contextmanager
 import math
 from datetime import datetime, timedelta
 import time
-import requests
-from requests.exceptions import RequestException
 
-# Time period mappings (matching chartz)
+# Constants
 TIME_PERIODS = {
-    '1M': '1mo',
-    '3M': '3mo',
-    '6M': '6mo',
-    'YTD': 'ytd',
     '1Y': '1y',
-    '2Y': '2y',
     '5Y': '5y',
-    'MAX': 'max'
+    'Max': 'max'
 }
 
 INTERVALS = {
@@ -28,6 +21,7 @@ INTERVALS = {
     'M': '1mo'
 }
 
+# Database functions remain the same
 @contextmanager
 def get_db_connection():
     conn = sqlite3.connect('stocks1.db', check_same_thread=False)
@@ -47,111 +41,7 @@ def get_stocks_from_table(table_name):
         query = f"SELECT DISTINCT symbol, stock_name FROM {table_name} ORDER BY symbol;"
         return pd.read_sql_query(query, conn)
 
-@st.cache_data(ttl=300)
-def fetch_stock_data(ticker, period='1y', interval='1d', retries=3, delay=1):
-    for attempt in range(retries):
-        try:
-            stock = yf.Ticker(ticker)
-            df = stock.history(period=period, interval=interval)
-            if df.empty:
-                raise ValueError("No data received")
-            return df
-        except Exception as e:
-            if attempt == retries - 1:
-                st.error(f"Failed to fetch data after {retries} attempts: {str(e)}")
-                return None
-            time.sleep(delay)
-            delay *= 2
-
-def format_volume(volume):
-    if volume >= 1_000_000:
-        return f'{volume/1_000_000:.2f}M'
-    elif volume >= 1_000:
-        return f'{volume/1_000:.1f}K'
-    return str(volume)
-
-def load_chart_data(symbol, period, interval):
-    ticker = f"{symbol}.NS"
-    try:
-        df = fetch_stock_data(ticker, period=period, interval=interval)
-        if df is None:
-            return None, None, None, None
-            
-        df = df.reset_index()
-        
-        chart_data = pd.DataFrame({
-            "time": df["Date"].dt.strftime("%Y-%m-%d"),
-            "open": df["Open"],
-            "high": df["High"],
-            "low": df["Low"],
-            "close": df["Close"],
-            "volume": df["Volume"]
-        })
-
-        current_price = df['Close'].iloc[-1]
-        prev_close = df['Close'].iloc[-2] if len(df) > 1 else current_price
-        daily_change = ((current_price - prev_close) / prev_close) * 100
-        volume = df['Volume'].iloc[-1]
-
-        return chart_data, current_price, daily_change, volume
-
-    except Exception as e:
-        st.error(f"Error loading data: {str(e)}")
-        return None, None, None, None
-
-def create_chart(chart_data, name, symbol, current_price, daily_change, volume):
-    if chart_data is not None:
-        chart = StreamlitChart(height=500)
-        
-        # Style configuration matching chartz
-        chart.layout(
-            background_color='#1E222D',
-            text_color='#D1D4DC',
-            font_size=12,
-            font_family='Inter'
-        )
-        
-        # Candlestick style matching chartz
-        chart.candle_style(
-            up_color='#089981',
-            down_color='#F23645',
-            wick_up_color='#089981',
-            wick_down_color='#F23645'
-        )
-        
-        # Volume style
-        chart.volume_config(
-            up_color='rgba(8, 153, 129, 0.5)',
-            down_color='rgba(242, 54, 69, 0.5)'
-        )
-        
-        # Other configurations
-        chart.crosshair(mode='normal')
-        chart.time_scale(
-            right_offset=15,
-            min_bar_spacing=6,
-            visible=True
-        )
-        
-        chart.grid(
-            vert_enabled=False,
-            horz_enabled=True
-        )
-        
-        # Format price and change
-        formatted_price = f"₹{current_price:,.2f}"
-        change_symbol = '+' if daily_change >= 0 else ''
-        formatted_change = f"{change_symbol}{daily_change:.2f}%"
-        formatted_volume = format_volume(volume)
-        
-        chart.legend(visible=True)
-        chart.price_line(label_visible=True)
-        chart.set(chart_data)
-        chart.load()
-    else:
-        st.warning("No data available")
-
-# Page configuration
+# Updated styling to match chartz
 st.set_page_config(
     layout="wide",
     page_title="Stock Chart",
@@ -159,197 +49,276 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Custom CSS to match chartz styling
+# Custom CSS matching chartz exactly
 st.markdown("""
     <style>
     .stApp {
-        background-color: #1E222D;
+        background-color: #14171C !important;
     }
     
-    /* Header styling */
-    div[data-testid="stToolbar"] {
-        display: none;
+    /* Hide Streamlit elements */
+    #MainMenu, footer, header {
+        display: none !important;
     }
     
-    .header-container {
-        background-color: #2A2E39;
-        padding: 10px 20px;
-        margin: -1rem -1rem 1rem -1rem;
-        border-bottom: 1px solid #363A45;
+    /* Top navigation bar */
+    .top-nav {
+        background-color: #1C1F26;
+        padding: 12px 24px;
+        border-bottom: 1px solid #2A2E39;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 1000;
     }
     
+    /* Stock info container */
     .stock-info {
-        color: #D1D4DC;
-        font-size: 16px;
-        font-weight: 500;
-    }
-    
-    /* Control elements styling */
-    .stSelectbox > div > div {
-        background-color: #2A2E39;
-        border: 1px solid #363A45;
-        color: #D1D4DC;
-    }
-    
-    div[data-baseweb="select"] > div {
-        background-color: #2A2E39 !important;
-        border-color: #363A45 !important;
-        color: #D1D4DC !important;
-    }
-    
-    .stButton > button {
-        background-color: #2A2E39;
-        color: #D1D4DC;
-        border: 1px solid #363A45;
-        border-radius: 4px;
-        padding: 4px 12px;
-    }
-    
-    .stButton > button:hover {
-        background-color: #363A45;
-        border-color: #4A4E58;
-    }
-    
-    /* Period/interval buttons */
-    .time-controls {
-        display: flex;
-        gap: 8px;
-    }
-    
-    .time-controls button {
-        background-color: #2A2E39;
-        color: #D1D4DC;
-        border: 1px solid #363A45;
-        padding: 4px 12px;
-        border-radius: 4px;
-        cursor: pointer;
-    }
-    
-    .time-controls button.active {
-        background-color: #363A45;
-        border-color: #4A4E58;
-    }
-    
-    /* Navigation styling */
-    .navigation {
         display: flex;
         align-items: center;
         gap: 16px;
-        margin-top: 16px;
-        padding: 8px;
-        background-color: #2A2E39;
-        border-radius: 4px;
+        color: #D1D4DC;
     }
     
-    /* Price display */
-    .price-display {
+    .stock-name {
+        font-size: 24px;
+        font-weight: 600;
         color: #D1D4DC;
-        font-size: 18px;
-        font-weight: bold;
+    }
+    
+    .stock-price {
+        font-size: 20px;
+        font-weight: 500;
     }
     
     .price-change {
+        padding: 2px 8px;
+        border-radius: 4px;
         font-size: 14px;
-        margin-left: 8px;
     }
     
     .price-change.positive {
+        background-color: rgba(8, 153, 129, 0.1);
         color: #089981;
     }
     
     .price-change.negative {
+        background-color: rgba(242, 54, 69, 0.1);
         color: #F23645;
     }
+    
+    /* Time period controls */
+    .time-controls {
+        display: flex;
+        gap: 8px;
+        margin-top: 16px;
+    }
+    
+    .time-control-btn {
+        background-color: #2A2E39;
+        color: #D1D4DC;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+    }
+    
+    .time-control-btn.active {
+        background-color: #363A45;
+    }
+    
+    /* Navigation controls */
+    .nav-controls {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px 24px;
+        background-color: #1C1F26;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+    }
+    
+    .nav-btn {
+        background-color: #2A2E39;
+        color: #D1D4DC;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    
+    .nav-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    
+    .page-indicator {
+        color: #D1D4DC;
+        font-size: 14px;
+    }
+    
+    /* Chart container */
+    .chart-container {
+        margin-top: 64px;
+        margin-bottom: 80px;
+        padding: 24px;
+        background-color: #1C1F26;
+        border-radius: 8px;
+    }
     </style>
-    """, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
-# Header
+# Initialize session state
+if 'current_page' not in st.session_state:
+    st.session_state.current_page = 1
+if 'selected_period' not in st.session_state:
+    st.session_state.selected_period = '1Y'
+if 'selected_interval' not in st.session_state:
+    st.session_state.selected_interval = 'D'
+
+# Top navigation
 st.markdown("""
-    <div class="header-container">
-        <div class="stock-info">
-            <select id="index-selector" style="background-color: #2A2E39; color: #D1D4DC; border: 1px solid #363A45; padding: 4px 8px; border-radius: 4px;">
-                <option value="NIFTY50">NIFTY 50</option>
-            </select>
+    <div class="top-nav">
+        <select class="index-selector">
+            <option value="NIFTY50">NIFTY 50</option>
+        </select>
+    </div>
+""", unsafe_allow_html=True)
+
+# Main content
+selected_table = "NIFTY50"  # Hardcoded for demo
+stocks_df = get_stocks_from_table(selected_table)
+
+# Get current stock
+start_idx = (st.session_state.current_page - 1)
+stock = stocks_df.iloc[start_idx]
+
+# Load chart data
+@st.cache_data(ttl=300)
+def load_chart_data(symbol, period='1y', interval='1d'):
+    try:
+        ticker = yf.Ticker(f"{symbol}.NS")
+        df = ticker.history(period=period, interval=interval)
+        if df.empty:
+            return None, None, None
+        
+        current_price = df['Close'].iloc[-1]
+        prev_close = df['Close'].iloc[-2] if len(df) > 1 else current_price
+        daily_change = ((current_price - prev_close) / prev_close) * 100
+        
+        chart_data = pd.DataFrame({
+            "time": df.index.strftime("%Y-%m-%d"),
+            "open": df["Open"],
+            "high": df["High"],
+            "low": df["Low"],
+            "close": df["Close"],
+            "volume": df["Volume"]
+        })
+        
+        return chart_data, current_price, daily_change
+    
+    except Exception as e:
+        st.error(f"Error loading data: {str(e)}")
+        return None, None, None
+
+# Load and display chart
+chart_data, current_price, daily_change = load_chart_data(
+    stock['symbol'],
+    TIME_PERIODS[st.session_state.selected_period],
+    INTERVALS[st.session_state.selected_interval]
+)
+
+# Stock info and chart
+st.markdown(f"""
+    <div class="stock-info">
+        <div class="stock-name">{stock['stock_name']}</div>
+        <div class="stock-price">₹{current_price:,.2f}</div>
+        <div class="price-change {'positive' if daily_change >= 0 else 'negative'}">
+            {'+' if daily_change >= 0 else ''}{daily_change:.2f}%
         </div>
     </div>
 """, unsafe_allow_html=True)
 
-# Main content area
-selected_table = st.selectbox("Select Index", get_tables(), label_visibility="collapsed")
-
-if selected_table:
-    stocks_df = get_stocks_from_table(selected_table)
+# Chart
+if chart_data is not None:
+    chart = StreamlitChart(height=500)
     
-    if 'current_page' not in st.session_state:
-        st.session_state.current_page = 1
-    if 'selected_period' not in st.session_state:
-        st.session_state.selected_period = 'YTD'
-    if 'selected_interval' not in st.session_state:
-        st.session_state.selected_interval = 'D'
-
-    CHARTS_PER_PAGE = 1
-    total_pages = math.ceil(len(stocks_df) / CHARTS_PER_PAGE)
-    start_idx = (st.session_state.current_page - 1) * CHARTS_PER_PAGE
-    stock = stocks_df.iloc[start_idx]
-
-    # Chart container
-    chart_container = st.container()
-    with chart_container:
-        chart_data, current_price, daily_change, volume = load_chart_data(
-            stock['symbol'],
-            TIME_PERIODS[st.session_state.selected_period],
-            INTERVALS[st.session_state.selected_interval]
-        )
-        
-        # Price and change display
-        col1, col2 = st.columns([6, 4])
-        with col1:
-            change_class = "positive" if daily_change >= 0 else "negative"
-            st.markdown(f"""
-                <div class="price-display">
-                    ₹{current_price:,.2f}
-                    <span class="price-change {change_class}">
-                        {'+' if daily_change >= 0 else ''}{daily_change:.2f}%
-                    </span>
-                </div>
-            """, unsafe_allow_html=True)
-        
-        create_chart(
-            chart_data,
-            stock['stock_name'],
-            stock['symbol'],
-            current_price,
-            daily_change,
-            volume
-        )
-
-    # Time period and interval controls
-    col1, col2, col3 = st.columns([6, 2, 2])
+    # Chart styling
+    chart.layout(
+        background_color='#1C1F26',
+        text_color='#D1D4DC',
+        font_size=12,
+        font_family='Inter'
+    )
     
-    with col1:
-        st.markdown('<div class="time-controls">', unsafe_allow_html=True)
-        for period in TIME_PERIODS.keys():
-            active_class = "active" if period == st.session_state.selected_period else ""
-            if st.button(period, key=f"period_{period}", help=f"Show {period} data"):
-                st.session_state.selected_period = period
-                st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
+    chart.candle_style(
+        up_color='#089981',
+        down_color='#F23645',
+        wick_up_color='#089981',
+        wick_down_color='#F23645'
+    )
+    
+    chart.volume_config(
+        up_color='rgba(8, 153, 129, 0.5)',
+        down_color='rgba(242, 54, 69, 0.5)'
+    )
+    
+    chart.crosshair(mode='normal')
+    chart.time_scale(
+        right_offset=15,
+        min_bar_spacing=6,
+        visible=True
+    )
+    
+    chart.grid(
+        vert_enabled=False,
+        horz_enabled=True
+    )
+    
+    chart.set(chart_data)
+    chart.load()
 
-    # Navigation
-    nav_col1, nav_col2, nav_col3 = st.columns([1, 3, 1])
-    with nav_col1:
-        if st.button("← Previous", disabled=(st.session_state.current_page == 1)):
-            st.session_state.current_page -= 1
-            st.rerun()
-    
-    with nav_col2:
-        st.markdown(f"""
-            <div style="text-align: center; color: #D1D4DC;">
-                {st.session_state.current_page} / {total_pages}
-            </div>
-        """, unsafe_allow_html=True)
-    
-    with nav_col3:
-        if st.button("Next →", disabled=(st.session_state.current_page == total_pages)):
-            st.session_state.current_page += 1
-            st.rerun()
+# Time period controls
+st.markdown('<div class="time-controls">', unsafe_allow_html=True)
+for period in TIME_PERIODS:
+    active_class = "active" if period == st.session_state.selected_period else ""
+    if st.button(period, key=f"period_{period}", 
+                 help=f"Show {period} data",
+                 use_container_width=False):
+        st.session_state.selected_period = period
+        st.rerun()
+st.markdown('</div>', unsafe_allow_html=True)
+
+# Navigation
+total_pages = len(stocks_df)
+st.markdown(f"""
+    <div class="nav-controls">
+        <button class="nav-btn" 
+                {'disabled' if st.session_state.current_page == 1 else ''}
+                onclick="window.location.href='?page={st.session_state.current_page - 1}'">
+            ← Previous
+        </button>
+        <div class="page-indicator">{st.session_state.current_page} / {total_pages}</div>
+        <button class="nav-btn"
+                {'disabled' if st.session_state.current_page == total_pages else ''}
+                onclick="window.location.href='?page={st.session_state.current_page + 1}'">
+            Next →
+        </button>
+    </div>
+""", unsafe_allow_html=True)
+
+# Navigation buttons functionality
+col1, col2, col3 = st.columns([1, 3, 1])
+with col1:
+    if st.button("← Previous", key="prev_btn", disabled=(st.session_state.current_page == 1)):
+        st.session_state.current_page -= 1
+        st.rerun()
+
+with col3:
+    if st.button("Next →", key="next_btn", disabled=(st.session_state.current_page == total_pages)):
+        st.session_state.current_page += 1
+        st.rerun()
