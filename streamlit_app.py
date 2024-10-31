@@ -106,11 +106,28 @@ def fetch_stock_data(ticker, period='ytd', interval='1d'):
     stock = yf.Ticker(ticker)
     return stock.history(period=period, interval=interval)
 
-# --- Load and Display Data ---
 def load_chart_data(symbol, period, interval):
-    df = fetch_stock_data(f"{symbol}.NS", period=period, interval=interval)
-    if df is not None:
+    ticker = f"{symbol}.NS"
+    try:
+        df = fetch_stock_data(ticker, period=period, interval=interval)
+        
+        if df is None or df.empty:
+            return None, None, None, None, None
+            
         df = df.reset_index()
+        
+        # Ensure 'Date' column is datetime
+        df['Date'] = pd.to_datetime(df['Date'])
+
+        prev_month = (datetime.now().replace(day=1) - timedelta(days=1)).strftime('%Y-%m')
+        prev_month_data = df[df['Date'].dt.strftime('%Y-%m') == prev_month]
+
+        if not prev_month_data.empty:
+            high, low, close = prev_month_data['High'].max(), prev_month_data['Low'].min(), prev_month_data['Close'].iloc[-1]
+            pivot_points = calculate_pivot_points(high, low, close)
+        else:
+            pivot_points = None
+
         chart_data = pd.DataFrame({
             "time": df["Date"].dt.strftime("%Y-%m-%d"),
             "open": df["Open"], 
@@ -119,8 +136,40 @@ def load_chart_data(symbol, period, interval):
             "close": df["Close"],
             "volume": df["Volume"]
         })
-        return chart_data, df["Close"].iloc[-1], df["Volume"].iloc[-1]
-    return None, None, None
+
+        try:
+            today = pd.Timestamp.now().strftime('%Y-%m-%d')
+            today_data = df[df['Date'].dt.strftime('%Y-%m-%d') == today]
+            
+            if today_data.empty:
+                current_price = df['Close'].iloc[-1]
+                prev_close = df['Close'].iloc[-2] if len(df) > 1 else current_price
+            else:
+                today_idx = df[df['Date'].dt.strftime('%Y-%m-%d') == today].index[0]
+                current_price = df['Close'].iloc[today_idx]
+                prev_close = df['Close'].iloc[today_idx - 1] if today_idx > 0 else current_price
+
+            daily_change = ((current_price - prev_close) / prev_close) * 100
+            volume = df['Volume'].iloc[-1]
+
+        except (IndexError, ZeroDivisionError) as e:
+            st.warning(f"Unable to calculate metrics for {symbol}. Error: {str(e)}")
+            current_price = df['Close'].iloc[-1] if not df['Close'].empty else 0
+            daily_change = 0
+            volume = 0
+
+        return chart_data, current_price, volume, daily_change, pivot_points
+            
+    except Exception as e:
+        st.error(f"""
+            Error loading data for {symbol}. This could be due to:
+            - Temporary connection issues with Yahoo Finance
+            - Rate limiting
+            - Invalid symbol
+            
+            Please try again in a few moments. Error: {str(e)}
+        """)
+    return None, None, None, None, None
 
 # --- Create Chart ---
 def create_chart(chart_data, stock_name, price, volume):
