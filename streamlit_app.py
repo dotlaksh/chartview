@@ -161,29 +161,27 @@ if selected_table:
 
     # --- Time Period and Interval Buttons ---
     st.markdown("<h4 style='text-align: center;'>Select Period & Interval</h4>", unsafe_allow_html=True)
+    
     cols = st.columns(6)
+
     with cols[0]:
         st.markdown("**Period**")
     
-    for i, (period, period_value) in enumerate(TIME_PERIODS.items(), start=1):
-        with cols[i]:
-            if st.button(period, key=f"period_{period}", use_container_width=True):
-                st.session_state.selected_period = period_value
-
-
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown("**Period**")
-        for period in TIME_PERIODS:
+    for i, period in enumerate(TIME_PERIODS):
+        with cols[i+1]:
             if st.button(period, key=f"period_{period}", use_container_width=True):
                 st.session_state.selected_period = period
     
-    with col2:
+    with cols[3]:
         st.markdown("**Interval**")
-        for interval in INTERVALS:
+    
+    for i, interval in enumerate(INTERVALS):
+        with cols[i+4]:
             if st.button(interval, key=f"interval_{interval}", use_container_width=True):
                 st.session_state.selected_interval = interval
+
+
+    
     
     # --- Load and Render Chart ---
     with st.spinner(f"Loading {current_stock['stock_name']}..."):
