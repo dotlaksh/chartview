@@ -118,12 +118,14 @@ def fetch_stock_data(ticker, period='ytd', interval='1d'):
     return stock.history(period=period, interval=interval)
 
 # --- Load and Display Data ---
+# --- Load and Display Data ---
 def load_chart_data(symbol, period, interval):
     df = fetch_stock_data(f"{symbol}.NS", period=period, interval=interval)
-    if df is not None:
+    if df is not None and not df.empty:
         df = df.reset_index()
+        # Ensure the date column is formatted correctly
         chart_data = pd.DataFrame({
-            "time": df["Date"].dt.strftime("%Y-%m-%d"),
+            "time": df["index"].dt.strftime("%Y-%m-%d"),  # Use "index" after reset as date
             "open": df["Open"], 
             "high": df["High"],
             "low": df["Low"], 
@@ -132,6 +134,7 @@ def load_chart_data(symbol, period, interval):
         })
         return chart_data, df["Close"].iloc[-1], df["Volume"].iloc[-1]
     return None, None, None
+
 
 # --- Create Chart ---
 def create_chart(chart_data, stock_name, price, volume):
@@ -179,7 +182,6 @@ if selected_table:
         for period in TIME_PERIODS:
             if st.button(period, key=f"period_{period}", use_container_width=True):
                 st.session_state.selected_period = period
-    
     with col2:
         st.markdown("**Interval**")
         for interval in INTERVALS:
