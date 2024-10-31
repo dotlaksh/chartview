@@ -14,7 +14,16 @@ st.set_page_config(
     layout="wide",  # Use wide layout for better mobile responsiveness
     initial_sidebar_state="collapsed"
 )
-
+# CSS to hide Streamlit's default menu and footer
+hide_streamlit_style = """
+    <style>
+    /* Hide Streamlit header */
+    #MainMenu {visibility: hidden;}
+    /* Hide Streamlit footer */
+    footer {visibility: hidden;}
+    </style>
+    """
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 # --- Custom CSS for Modern Mobile-First Design ---
 st.markdown("""
     <style>
@@ -22,7 +31,7 @@ st.markdown("""
     .stApp { 
         background-color: #181818; 
         color: #e0e0e0; 
-        max-width: 600px;  /* Constrain width for mobile feel */
+        max-width: 800px;  /* Constrain width for mobile feel */
         margin: 0 auto;
     }
     
