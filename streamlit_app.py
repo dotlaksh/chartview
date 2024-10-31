@@ -130,10 +130,13 @@ def create_chart(chart_data, stock_name, price, volume):
         chart.candle_style(up_color='#00ff55', down_color='#ed4807', wick_up_color='#00ff55', wick_down_color='#ed4807')
         chart.time_scale(right_offset=5, min_bar_spacing=5)
         chart.legend(visible=True, font_size=10)
-        
+        chart.volume_config(up_color='#00ff55', down_color='#ed4807')
+        chart.crosshair(mode='normal')
+        chart.grid(vert_enabled=False, horz_enabled=False)  
+        chart.price_line(label_visible=True,line_visible=True)
+        chart.fit()
         # Custom info bar
         st.markdown(f"<div class='top-bar'>{stock_name} | Price: ${price} | Volume: {volume}</div>", unsafe_allow_html=True)
-        
         chart.set(chart_data)
         chart.load()
     else:
