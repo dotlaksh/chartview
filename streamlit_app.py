@@ -52,106 +52,48 @@ st.set_page_config(
 # Custom CSS matching chartz exactly
 st.markdown("""
     <style>
-    .stApp {
-        background-color: #14171C !important;
+    /* Hide default Streamlit button styling */
+    .stButton > button {
+        display: none;
     }
     
-    /* Hide Streamlit elements */
-    #MainMenu, footer, header {
-        display: none !important;
-    }
-    
-    /* Top navigation bar */
-    .top-nav {
-        background-color: #1C1F26;
-        padding: 12px 24px;
-        border-bottom: 1px solid #2A2E39;
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        z-index: 1000;
-    }
-    
-    /* Stock info container */
-    .stock-info {
-        display: flex;
-        align-items: center;
-        gap: 16px;
-        color: #D1D4DC;
-    }
-    
-    .stock-name {
-        font-size: 24px;
-        font-weight: 600;
-        color: #D1D4DC;
-    }
-    
-    .stock-price {
-        font-size: 20px;
-        font-weight: 500;
-    }
-    
-    .price-change {
-        padding: 2px 8px;
-        border-radius: 4px;
-        font-size: 14px;
-    }
-    
-    .price-change.positive {
-        background-color: rgba(8, 153, 129, 0.1);
-        color: #089981;
-    }
-    
-    .price-change.negative {
-        background-color: rgba(242, 54, 69, 0.1);
-        color: #F23645;
-    }
-    
-    /* Time period controls */
-    .time-controls {
-        display: flex;
-        gap: 8px;
-        margin-top: 16px;
-    }
-    
-    .time-control-btn {
-        background-color: #2A2E39;
-        color: #D1D4DC;
-        border: none;
-        padding: 6px 12px;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 14px;
-    }
-    
-    .time-control-btn.active {
-        background-color: #363A45;
-    }
-    
-    /* Navigation controls */
-    .nav-controls {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 16px 24px;
-        background-color: #1C1F26;
+    /* Navigation container */
+    .nav-container {
         position: fixed;
         bottom: 0;
         left: 0;
         right: 0;
+        background-color: #1C1F26;
+        padding: 16px 24px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-top: 1px solid #2A2E39;
     }
     
-    .nav-btn {
+    /* Custom navigation buttons */
+    .nav-btn-container {
+        display: flex;
+        align-items: center;
+        gap: 24px;
+    }
+    
+    .custom-nav-btn {
         background-color: #2A2E39;
         color: #D1D4DC;
         border: none;
         padding: 8px 16px;
         border-radius: 4px;
         cursor: pointer;
+        font-size: 14px;
+        transition: background-color 0.2s;
     }
     
-    .nav-btn:disabled {
+    .custom-nav-btn:hover {
+        background-color: #363A45;
+    }
+    
+    .custom-nav-btn:disabled {
         opacity: 0.5;
         cursor: not-allowed;
     }
@@ -159,15 +101,7 @@ st.markdown("""
     .page-indicator {
         color: #D1D4DC;
         font-size: 14px;
-    }
-    
-    /* Chart container */
-    .chart-container {
-        margin-top: 64px;
-        margin-bottom: 80px;
-        padding: 24px;
-        background-color: #1C1F26;
-        border-radius: 8px;
+        padding: 0 16px;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -295,30 +229,37 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 # Navigation
 total_pages = len(stocks_df)
-st.markdown(f"""
-    <div class="nav-controls">
-        <button class="nav-btn" 
-                {'disabled' if st.session_state.current_page == 1 else ''}
-                onclick="window.location.href='?page={st.session_state.current_page - 1}'">
-            ← Previous
-        </button>
-        <div class="page-indicator">{st.session_state.current_page} / {total_pages}</div>
-        <button class="nav-btn"
-                {'disabled' if st.session_state.current_page == total_pages else ''}
-                onclick="window.location.href='?page={st.session_state.current_page + 1}'">
-            Next →
-        </button>
+# Container for navigation
+st.markdown(
+    f"""
+    <div class="nav-container">
+        <div class="nav-btn-container">
+            <div class='stButton'>
+                {'<button class="custom-nav-btn" disabled>← Previous</button>' 
+                if st.session_state.current_page == 1 
+                else '<button class="custom-nav-btn">← Previous</button>'}
+            </div>
+            <span class="page-indicator">{st.session_state.current_page} / {total_pages}</span>
+            <div class='stButton'>
+                {'<button class="custom-nav-btn" disabled>Next →</button>' 
+                if st.session_state.current_page == total_pages 
+                else '<button class="custom-nav-btn">Next →</button>'}
+            </div>
+        </div>
     </div>
-""", unsafe_allow_html=True)
+    """,
+    unsafe_allow_html=True
+)
 
 # Navigation buttons functionality
 col1, col2, col3 = st.columns([1, 3, 1])
 with col1:
-    if st.button("← Previous", key="prev_btn", disabled=(st.session_state.current_page == 1)):
+    if st.button("Previous", key="prev_btn", disabled=(st.session_state.current_page == 1)):
         st.session_state.current_page -= 1
         st.rerun()
 
 with col3:
-    if st.button("Next →", key="next_btn", disabled=(st.session_state.current_page == total_pages)):
+    if st.button("Next", key="next_btn", disabled=(st.session_state.current_page == total_pages)):
         st.session_state.current_page += 1
         st.rerun()
+st.markdown("<div style='height: 80px'></div>", unsafe_allow_html=True)
