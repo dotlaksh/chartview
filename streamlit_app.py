@@ -8,6 +8,24 @@ from datetime import datetime, timedelta
 import math
 import time
 
+# Define the time periods and intervals for stock data
+TIME_PERIODS = {
+    '1M': '1mo',
+    '3M': '3mo',
+    '6M': '6mo',
+    'YTD': 'ytd',
+    '1Y': '1y',
+    '2Y': '2y',
+    '5Y': '5y',
+    'MAX': 'max'
+}
+
+INTERVALS = {
+    'Daily': '1d',
+    'Weekly': '1wk',
+    'Monthly': '1mo'
+}
+
 # Set up a mobile-first page config
 st.set_page_config(layout="centered", page_title="📈 ChartView Mobile", page_icon="📈")
 
