@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 import math
 import time
 
-# Setting up a mobile-first page config
+# Set up a mobile-first page config
 st.set_page_config(layout="centered", page_title="📈 ChartView Mobile", page_icon="📈")
 
 # Mobile-friendly styling
@@ -83,12 +83,92 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# Helper functions
+@st.cache_data(ttl=300)
+def fetch_stock_data(ticker, period='ytd', interval='1d', retries=3, delay=1):
+    for attempt in range(retries):
+        try:
+            stock = yf.Ticker(ticker)
+            df = stock.history(period=period, interval=interval)
+            if df.empty:
+                raise ValueError("No data received from Yahoo Finance")
+            return df
+        except Exception as e:
+            if attempt == retries - 1:
+                st.error(f"Failed to fetch data for {ticker}. Error: {str(e)}")
+                return None
+            time.sleep(delay)
+            delay *= 2
+
+def calculate_pivot_points(high, low, close):
+    pivot = (high + low + close) / 3
+    return {'P': round(pivot, 2)}
+
+def format_volume(volume):
+    if volume >= 1_000_000:
+        return f'{volume / 1_000_000:.1f}M'
+    elif volume >= 1_000:
+        return f'{volume / 1_000:.0f}K'
+    else:
+        return str(volume)
+
+def load_chart_data(symbol, period, interval):
+    ticker = f"{symbol}.NS"
+    df = fetch_stock_data(ticker, period=period, interval=interval)
+    if df is None or df.empty:
+        return None, None, None, None, None
+    df = df.reset_index()
+    prev_month = (datetime.now().replace(day=1) - timedelta(days=1)).strftime('%Y-%m')
+    prev_month_data = df[df['Date'].dt.strftime('%Y-%m') == prev_month]
+    if not prev_month_data.empty:
+        high, low, close = prev_month_data['High'].max(), prev_month_data['Low'].min(), prev_month_data['Close'].iloc[-1]
+        pivot_points = calculate_pivot_points(high, low, close)
+    else:
+        pivot_points = None
+    chart_data = pd.DataFrame({
+        "time": df["Date"].dt.strftime("%Y-%m-%d"),
+        "open": df["Open"], 
+        "high": df["High"],
+        "low": df["Low"], 
+        "close": df["Close"],
+        "volume": df["Volume"]
+    })
+    today = pd.Timestamp.now().strftime('%Y-%m-%d')
+    today_data = df[df['Date'].dt.strftime('%Y-%m-%d') == today]
+    if today_data.empty:
+        current_price = df['Close'].iloc[-1]
+        prev_close = df['Close'].iloc[-2] if len(df) > 1 else current_price
+    else:
+        today_idx = df[df['Date'].dt.strftime('%Y-%m-%d') == today].index[0]
+        current_price = df['Close'].iloc[today_idx]
+        prev_close = df['Close'].iloc[today_idx - 1] if today_idx > 0 else current_price
+    daily_change = ((current_price - prev_close) / prev_close) * 100
+    volume = df['Volume'].iloc[-1]
+    return chart_data, current_price, volume, daily_change, pivot_points
+
+def get_db_connection():
+    conn = sqlite3.connect('stocks1.db', check_same_thread=False)
+    try:
+        yield conn
+    finally:
+        conn.close()
+
+def get_tables():
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';")
+        return [table[0] for table in cursor.fetchall()]
+
+def get_stocks_from_table(table_name):
+    with get_db_connection() as conn:
+        query = f"SELECT DISTINCT symbol, stock_name FROM {table_name} ORDER BY symbol;"
+        return pd.read_sql_query(query, conn)
+
 # Sidebar with mobile-friendly design
 with st.sidebar:
     st.title("📊 ChartView Pro Mobile")
     st.write("Track stocks on the go with a simplified view.")
     
-    # Dataset selection with minimalistic dropdown
     tables = get_tables()
     selected_table = st.selectbox("Dataset", tables, key="selected_table")
     st.markdown("---")
@@ -100,7 +180,7 @@ with st.sidebar:
 
 def create_chart(chart_data, name, symbol, current_price, volume, daily_change, pivot_points):
     if chart_data is not None:
-        chart = StreamlitChart(height=400)  # Adjusted height for mobile
+        chart = StreamlitChart(height=400)
         change_color = '#00ff55' if daily_change >= 0 else '#ed4807'
         
         # Chart setup with compact layout for mobile
