@@ -136,7 +136,7 @@ def create_chart(chart_data, stock_name, price, volume):
         chart.price_line(label_visible=True,line_visible=True)
         chart.fit()
         # Custom info bar
-        st.markdown(f"<div class='top-bar'>{stock_name})
+        st.markdown(f"<div class='top-bar'>{stock_name} </div>", unsafe_allow_html=True)
         chart.set(chart_data)
         chart.load()
     else:
