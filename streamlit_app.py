@@ -127,10 +127,11 @@ def create_chart(chart_data, name, symbol, current_price, daily_change, volume):
             min_bar_spacing=6,
             visible=True
         )
+        
+        # Updated grid configuration without horz_color
         chart.grid(
             vert_enabled=False,
-            horz_enabled=True,
-            horz_color='rgba(255, 255, 255, 0.07)'
+            horz_enabled=True
         )
         
         # Price formatting
@@ -175,6 +176,13 @@ st.markdown("""
         background-color: #2A2E39;
         color: white;
         border: 1px solid #363A45;
+    }
+    .stSelectbox > div > div {
+        background-color: #2A2E39;
+    }
+    div[data-baseweb="select"] > div {
+        background-color: #2A2E39 !important;
+        border-color: #363A45 !important;
     }
     </style>
     """, unsafe_allow_html=True)
