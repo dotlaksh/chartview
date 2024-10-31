@@ -9,24 +9,18 @@ from datetime import datetime, timedelta
 import time
 import requests
 from requests.exceptions import RequestException
-from streamlit_extras.row import row
 
-# Time period and interval mappings
+# Time period mappings
 TIME_PERIODS = {
-    '1M': '1mo',
-    '3M': '3mo',
-    '6M': '6mo',
-    'YTD': 'ytd',
     '1Y': '1y',
-    '2Y': '2y',
     '5Y': '5y',
-    'MAX': 'max'
+    'Max': 'max'
 }
 
 INTERVALS = {
-    'Daily': '1d',
-    'Weekly': '1wk',
-    'Monthly': '1mo'
+    'D': '1d',
+    'W': '1wk',
+    'M': '1mo'
 }
 
 @contextmanager
@@ -48,229 +42,204 @@ def get_stocks_from_table(table_name):
         query = f"SELECT DISTINCT symbol, stock_name FROM {table_name} ORDER BY symbol;"
         return pd.read_sql_query(query, conn)
 
-def calculate_pivot_points(high, low, close):
-    pivot = (high + low + close) / 3
-    return {'P': round(pivot, 2)}
-
-def format_volume(volume):
-    if volume >= 1_000_000:
-        return f'{volume/1_000_000:.1f}M'
-    elif volume >= 1_000:
-        return f'{volume/1_000:.0f}K'
-    else:
-        return str(volume)
-
 @st.cache_data(ttl=300)
-def fetch_stock_data(ticker, period='ytd', interval='1d', retries=3, delay=1):
-    """
-    Fetch stock data with retry mechanism and proper error handling
-    """
+def fetch_stock_data(ticker, period='1y', interval='1d', retries=3, delay=1):
     for attempt in range(retries):
         try:
             stock = yf.Ticker(ticker)
             df = stock.history(period=period, interval=interval)
-            
             if df.empty:
-                raise ValueError("No data received from Yahoo Finance")
-            
+                raise ValueError("No data received")
             return df
-            
-        except (RequestException, ValueError, Exception) as e:
-            if attempt == retries - 1:  # Last attempt
-                st.error(f"Failed to fetch data for {ticker} after {retries} attempts. Error: {str(e)}")
+        except Exception as e:
+            if attempt == retries - 1:
+                st.error(f"Failed to fetch data after {retries} attempts: {str(e)}")
                 return None
-            time.sleep(delay)  # Wait before retrying
-            delay *= 2  # Exponential backoff
+            time.sleep(delay)
+            delay *= 2
+
+def format_volume(volume):
+    if volume >= 1_000_000:
+        return f'{volume/1_000_000:.2f}M'
+    elif volume >= 1_000:
+        return f'{volume/1_000:.1f}K'
+    return str(volume)
 
 def load_chart_data(symbol, period, interval):
     ticker = f"{symbol}.NS"
     try:
         df = fetch_stock_data(ticker, period=period, interval=interval)
-        
         if df is None:
-            return None, None, None, None, None
+            return None, None, None, None
             
         df = df.reset_index()
+        
+        chart_data = pd.DataFrame({
+            "time": df["Date"].dt.strftime("%Y-%m-%d"),
+            "open": df["Open"],
+            "high": df["High"],
+            "low": df["Low"],
+            "close": df["Close"],
+            "volume": df["Volume"]
+        })
 
-        if not df.empty:
-            prev_month = (datetime.now().replace(day=1) - timedelta(days=1)).strftime('%Y-%m')
-            prev_month_data = df[df['Date'].dt.strftime('%Y-%m') == prev_month]
+        current_price = df['Close'].iloc[-1]
+        prev_close = df['Close'].iloc[-2] if len(df) > 1 else current_price
+        daily_change = ((current_price - prev_close) / prev_close) * 100
+        volume = df['Volume'].iloc[-1]
 
-            if not prev_month_data.empty:
-                high, low, close = prev_month_data['High'].max(), prev_month_data['Low'].min(), prev_month_data['Close'].iloc[-1]
-                pivot_points = calculate_pivot_points(high, low, close)
-            else:
-                pivot_points = None
+        return chart_data, current_price, daily_change, volume
 
-            chart_data = pd.DataFrame({
-                "time": df["Date"].dt.strftime("%Y-%m-%d"),
-                "open": df["Open"], 
-                "high": df["High"],
-                "low": df["Low"], 
-                "close": df["Close"],
-                "volume": df["Volume"]
-            })
-
-            try:
-                today = pd.Timestamp.now().strftime('%Y-%m-%d')
-                today_data = df[df['Date'].dt.strftime('%Y-%m-%d') == today]
-                
-                if today_data.empty:
-                    current_price = df['Close'].iloc[-1]
-                    prev_close = df['Close'].iloc[-2] if len(df) > 1 else current_price
-                else:
-                    today_idx = df[df['Date'].dt.strftime('%Y-%m-%d') == today].index[0]
-                    current_price = df['Close'].iloc[today_idx]
-                    prev_close = df['Close'].iloc[today_idx - 1] if today_idx > 0 else current_price
-
-                daily_change = ((current_price - prev_close) / prev_close) * 100
-                volume = df['Volume'].iloc[-1]
-
-            except (IndexError, ZeroDivisionError) as e:
-                st.warning(f"Unable to calculate metrics for {symbol}. Error: {str(e)}")
-                current_price = df['Close'].iloc[-1] if not df['Close'].empty else 0
-                daily_change = 0
-                volume = 0
-
-            return chart_data, current_price, volume, daily_change, pivot_points
-            
     except Exception as e:
-        st.error(f"""
-            Error loading data for {symbol}. This could be due to:
-            - Temporary connection issues with Yahoo Finance
-            - Rate limiting
-            - Invalid symbol
-            
-            Please try again in a few moments. Error: {str(e)}
-        """)
-    return None, None, None, None, None
+        st.error(f"Error loading data: {str(e)}")
+        return None, None, None, None
 
-def create_chart(chart_data, name, symbol, current_price, volume, daily_change, pivot_points):
+def create_chart(chart_data, name, symbol, current_price, daily_change, volume):
     if chart_data is not None:
-        chart = StreamlitChart(height=525)
-        change_color = '#00ff55' if daily_change >= 0 else '#ed4807'
-        change_symbol = '+' if daily_change >= 0 else '-'
-        chart.layout(background_color='#1E222D', text_color='#FFFFFF', font_size=12, font_family='Helvetica')
-        chart.candle_style(up_color='#00ff55', down_color='#ed4807', wick_up_color='#00ff55', wick_down_color='#ed4807')
+        chart = StreamlitChart(height=500)
+        
+        # Style configuration matching the screenshot
+        chart.layout(
+            background_color='#1E222D',
+            text_color='#FFFFFF',
+            font_size=12,
+            font_family='Inter'
+        )
+        
+        # Candlestick style
+        chart.candle_style(
+            up_color='#26A69A',
+            down_color='#EF5350',
+            wick_up_color='#26A69A',
+            wick_down_color='#EF5350'
+        )
+        
+        # Volume style
+        chart.volume_config(
+            up_color='rgba(38, 166, 154, 0.5)',
+            down_color='rgba(239, 83, 80, 0.5)'
+        )
+        
+        # Other configurations
+        chart.crosshair(mode='normal')
+        chart.time_scale(
+            right_offset=15,
+            min_bar_spacing=6,
+            visible=True
+        )
+        chart.grid(
+            vert_enabled=False,
+            horz_enabled=True,
+            horz_color='rgba(255, 255, 255, 0.07)'
+        )
+        
+        # Price formatting
+        formatted_price = f"₹{current_price:,.2f}"
+        change_color = '#26A69A' if daily_change >= 0 else '#EF5350'
+        change_symbol = '+' if daily_change >= 0 else ''
+        formatted_change = f"{change_symbol}{daily_change:.2f}%"
         formatted_volume = format_volume(volume)
         
-        if pivot_points:
-            chart.horizontal_line(pivot_points['P'], color='#39FF14', width=1)
-
-        chart.volume_config(up_color='#00ff55', down_color='#ed4807')
-        chart.crosshair(mode='normal')
-        chart.time_scale(right_offset=5, min_bar_spacing=5)
-        chart.grid(vert_enabled=False, horz_enabled=False)  
-        chart.legend(visible=True, font_size=12)
+        # Title and legend
         chart.topbar.textbox(
-            'info',
-            f'{name} |{change_symbol}{abs(daily_change):.2f}%'
+            'title',
+            f"{name} ({symbol}) {formatted_price} {formatted_change}"
         )
-        chart.price_line(label_visible=True,line_visible=True)
-        chart.fit()
+        
+        chart.legend(visible=True)
+        chart.price_line(label_visible=True)
         chart.set(chart_data)
         chart.load()
     else:
-        st.warning("No data available.")
+        st.warning("No data available")
 
-# Initial page config
-st.set_page_config(layout="centered", page_title="ChartView 2.0", page_icon="📈")
+# Page configuration
+st.set_page_config(
+    layout="wide",
+    page_title="Stock Chart",
+    page_icon="📈",
+    initial_sidebar_state="collapsed"
+)
 
+# Custom CSS
+st.markdown("""
+    <style>
+    .stApp {
+        background-color: #1E222D;
+    }
+    .stSelectbox {
+        background-color: #2A2E39;
+        color: white;
+    }
+    .stButton > button {
+        background-color: #2A2E39;
+        color: white;
+        border: 1px solid #363A45;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-# Sidebar
-with st.sidebar:
-    st.title("📊 ChartView 2.0")
-    
-    tables = get_tables()
-    selected_table = st.selectbox("Select a table:", tables, key="selected_table")
+# Main interface
+col1, col2, col3 = st.columns([2, 8, 2])
 
-    if 'last_selected_table' not in st.session_state or st.session_state.last_selected_table != st.session_state.selected_table:
-        st.session_state.current_page = 1
-        st.session_state.last_selected_table = st.session_state.selected_table
+with col1:
+    selected_table = st.selectbox(
+        "Select Index",
+        get_tables(),
+        key="selected_table",
+        label_visibility="collapsed"
+    )
 
-# Initialize session state for period and interval
-if 'selected_period' not in st.session_state:
-    st.session_state.selected_period = 'YTD'
-if 'selected_interval' not in st.session_state:
-    st.session_state.selected_interval = 'Daily'
-
-# Main content
 if selected_table:
     stocks_df = get_stocks_from_table(selected_table)
     
-    CHARTS_PER_PAGE = 1
-    total_pages = math.ceil(len(stocks_df) / CHARTS_PER_PAGE)
-
     if 'current_page' not in st.session_state:
         st.session_state.current_page = 1
+    if 'selected_period' not in st.session_state:
+        st.session_state.selected_period = '1Y'
+    if 'selected_interval' not in st.session_state:
+        st.session_state.selected_interval = 'D'
 
+    CHARTS_PER_PAGE = 1
+    total_pages = math.ceil(len(stocks_df) / CHARTS_PER_PAGE)
     start_idx = (st.session_state.current_page - 1) * CHARTS_PER_PAGE
     stock = stocks_df.iloc[start_idx]
 
-    with st.spinner(f"Loading {stock['stock_name']}..."):
-        # Use selected period and interval from session state
-        chart_data, current_price, volume, daily_change, pivot_points = load_chart_data(
+    # Chart area
+    with st.container():
+        chart_data, current_price, daily_change, volume = load_chart_data(
             stock['symbol'],
             TIME_PERIODS[st.session_state.selected_period],
             INTERVALS[st.session_state.selected_interval]
         )
-        create_chart(chart_data, stock['stock_name'], stock['symbol'], current_price, volume, daily_change, pivot_points)
+        create_chart(
+            chart_data,
+            stock['stock_name'],
+            stock['symbol'],
+            current_price,
+            daily_change,
+            volume
+        )
 
-
-# Create the bottom navbar
-bottom_navbar = st.container()
-with bottom_navbar:
-    cols = st.columns([1, 1, 1, 1, 2, 2])
+    # Bottom navigation
+    cols = st.columns([1, 1, 1, 4, 1, 1, 1])
     
-    # Previous button
     with cols[0]:
-        st.button(
-            "← ", 
-            disabled=(st.session_state.current_page == 1), 
-            on_click=lambda: setattr(st.session_state, 'current_page', st.session_state.current_page - 1),
-            key="prev_button",
-            use_container_width=True
-        )
-    
-    # Page indicator
-    with cols[1]:
-        st.markdown(f"""
-            <div style='text-align: center; padding: 5px 0;'>
-                Page {st.session_state.current_page} of {total_pages}
-            </div>
-        """, unsafe_allow_html=True)
-    
-    # Next button
-    with cols[2]:
-        st.button(
-            "→", 
-            disabled=(st.session_state.current_page == total_pages), 
-            on_click=lambda: setattr(st.session_state, 'current_page', st.session_state.current_page + 1),
-            key="next_button",
-            use_container_width=True
-        )
-    
-    # Spacer
-    with cols[3]:
-        st.empty()
-    
-    # Time period selector
-    with cols[4]:
-        new_period = st.selectbox(
-            "Time Period:",
-            list(TIME_PERIODS.keys()),
-            index=list(TIME_PERIODS.keys()).index(st.session_state.selected_period),
-            key="period_selector",
-            label_visibility="collapsed"
-        )
-        if new_period != st.session_state.selected_period:
-            st.session_state.selected_period = new_period
+        if st.button("← Previous", disabled=(st.session_state.current_page == 1)):
+            st.session_state.current_page -= 1
             st.rerun()
     
-    # Interval selector
-    with cols[5]:
+    with cols[1]:
+        st.write(f"{st.session_state.current_page} / {total_pages}")
+    
+    with cols[2]:
+        if st.button("Next →", disabled=(st.session_state.current_page == total_pages)):
+            st.session_state.current_page += 1
+            st.rerun()
+    
+    with cols[4]:
         new_interval = st.selectbox(
-            "Interval:",
+            "Interval",
             list(INTERVALS.keys()),
             index=list(INTERVALS.keys()).index(st.session_state.selected_interval),
             key="interval_selector",
@@ -278,4 +247,16 @@ with bottom_navbar:
         )
         if new_interval != st.session_state.selected_interval:
             st.session_state.selected_interval = new_interval
+            st.rerun()
+    
+    with cols[5]:
+        new_period = st.selectbox(
+            "Period",
+            list(TIME_PERIODS.keys()),
+            index=list(TIME_PERIODS.keys()).index(st.session_state.selected_period),
+            key="period_selector",
+            label_visibility="collapsed"
+        )
+        if new_period != st.session_state.selected_period:
+            st.session_state.selected_period = new_period
             st.rerun()
