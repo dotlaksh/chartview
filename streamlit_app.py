@@ -279,22 +279,3 @@ with bottom_navbar:
         if new_interval != st.session_state.selected_interval:
             st.session_state.selected_interval = new_interval
             st.rerun()
-
-
-
-
-
-
-
-col1, col2 = st.columns(2)
-    with col1:
-        st.markdown("**Period**")
-        for period in TIME_PERIODS:
-            if st.button(period, key=f"period_{period}", use_container_width=True):
-                st.session_state.selected_period = period
-    
-    with col2:
-        st.markdown("**Interval**")
-        for interval in INTERVALS:
-            if st.button(interval, key=f"interval_{interval}", use_container_width=True):
-                st.session_state.selected_interval = interval
