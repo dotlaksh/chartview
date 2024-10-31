@@ -185,9 +185,6 @@ if selected_table:
         for interval in INTERVALS:
             if st.button(interval, key=f"interval_{interval}", use_container_width=True):
                 st.session_state.selected_interval = interval
-
-
-    
     
     # --- Load and Render Chart ---
     with st.spinner(f"Loading {current_stock['stock_name']}..."):
