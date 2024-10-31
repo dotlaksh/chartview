@@ -12,7 +12,7 @@ st.set_page_config(
     page_title="ChartView Mobile",
     page_icon="📈",
     layout="centered",  # centers content on mobile screens
-    initial_sidebar_state="collapsed"  # collapses sidebar on start for mobile
+    initial_sidebar_state="collapsed"
 )
 
 # --- Custom CSS for Modern Look ---
@@ -32,6 +32,14 @@ st.markdown("""
     .top-bar { text-align: center; color: #00ff55; font-size: 1.1rem; font-weight: 600; }
     </style>
 """, unsafe_allow_html=True)
+
+# --- Time Periods and Intervals ---
+TIME_PERIODS = {
+    '1M': '1mo', '3M': '3mo', '6M': '6mo', 'YTD': 'ytd', '1Y': '1y', '2Y': '2y', '5Y': '5y', 'MAX': 'max'
+}
+INTERVALS = {
+    'Daily': '1d', 'Weekly': '1wk', 'Monthly': '1mo'
+}
 
 # --- Database Context ---
 @contextmanager
@@ -77,7 +85,7 @@ def load_chart_data(symbol, period, interval):
     return None, None, None
 
 # --- Create Chart ---
-def create_chart(chart_data, stock_name, price, volume):
+def create_chart(chart_data, stock_name, price, volume, period, interval):
     if chart_data is not None:
         chart = StreamlitChart(height=450)
         chart.layout(background_color='#1E222D', text_color='#e0e0e0', font_size=12, font_family='Helvetica')
@@ -103,10 +111,33 @@ with st.sidebar:
 if selected_table:
     stocks_df = get_stocks_from_table(selected_table)
     stock = stocks_df.iloc[0]  # Show only first stock for simplicity in mobile view
-    
+
+    # --- Time Period and Interval Selectors ---
+    with st.container():
+        st.markdown("<h3 style='text-align: center;'>Select Period & Interval</h3>", unsafe_allow_html=True)
+        col1, col2 = st.columns([1, 1])
+        
+        with col1:
+            selected_period = st.selectbox(
+                "Time Period", list(TIME_PERIODS.keys()),
+                index=list(TIME_PERIODS.keys()).index('YTD'),
+                label_visibility="collapsed"
+            )
+        with col2:
+            selected_interval = st.selectbox(
+                "Interval", list(INTERVALS.keys()),
+                index=list(INTERVALS.keys()).index('Daily'),
+                label_visibility="collapsed"
+            )
+
+    # --- Load and Render Chart ---
     with st.spinner(f"Loading {stock['stock_name']}..."):
-        chart_data, current_price, volume = load_chart_data(stock['symbol'], 'ytd', '1d')
-        create_chart(chart_data, stock['stock_name'], current_price, volume)
+        chart_data, current_price, volume = load_chart_data(
+            stock['symbol'],
+            TIME_PERIODS[selected_period],
+            INTERVALS[selected_interval]
+        )
+        create_chart(chart_data, stock['stock_name'], current_price, volume, selected_period, selected_interval)
 
 # --- Navigation --- 
 nav_col1, nav_col2 = st.columns([1, 1])
