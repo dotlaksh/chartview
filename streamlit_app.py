@@ -7,68 +7,122 @@ from datetime import datetime, timedelta
 import math
 import time
 
-st.set_page_config(layout="wide", page_title="ChartView Pro", page_icon="📈")
+# Setting up a mobile-first page config
+st.set_page_config(layout="centered", page_title="📈 ChartView Mobile", page_icon="📈")
 
-# Enhanced styling
+# Mobile-friendly styling
 st.markdown("""
     <style>
-        .sidebar .sidebar-content {
-            background-color: #2E4053;
-        }
-        .stButton>button {
-            width: 100%;
-            height: 100%;
-            font-size: 18px;
+        /* Main background and font adjustments for mobile */
+        .reportview-container {
+            font-family: 'Arial', sans-serif;
             padding: 10px;
         }
-        .chart-container {
-            padding: 20px;
-            background-color: #1E2E42;
-            border-radius: 10px;
+
+        /* Sidebar styling for a simplified, mobile look */
+        .sidebar .sidebar-content {
+            background-color: #333745;
+            color: white;
         }
+        
+        /* Center elements on mobile, with padding */
+        .centered-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Button style */
+        .stButton>button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 10px;
+            font-size: 16px;
+            width: 100%;
+            transition: background-color 0.3s ease;
+        }
+
+        .stButton>button:hover {
+            background-color: #45a049;
+        }
+        
+        /* Navigation buttons styling */
+        .nav-btn {
+            font-size: 20px;
+            padding: 10px;
+        }
+
+        /* Header text */
+        h2 {
+            font-weight: bold;
+            color: #FFB830;
+            margin-top: 0;
+        }
+
+        /* Card and container styles */
+        .chart-container {
+            width: 100%;
+            padding: 15px;
+            background-color: #FFFFFF;
+            border-radius: 15px;
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            transition: box-shadow 0.3s ease;
+        }
+        
+        /* Footer text styling */
         .footer {
             color: #AAB2BD;
-            padding: 10px;
+            font-size: 14px;
+            padding: 5px;
             text-align: center;
         }
     </style>
 """, unsafe_allow_html=True)
 
-# Sidebar with theme
+# Sidebar with mobile-friendly design
 with st.sidebar:
-    st.title("📊 ChartView Pro")
-    st.write("Track and analyze stock performance with ease.")
+    st.title("📊 ChartView Pro Mobile")
+    st.write("Track stocks on the go with a simplified view.")
+    
+    # Dataset selection with minimalistic dropdown
     tables = get_tables()
-    selected_table = st.selectbox("Select Dataset:", tables, key="selected_table")
+    selected_table = st.selectbox("Dataset", tables, key="selected_table")
     st.markdown("---")
     
-    # Time Period & Interval Selection
+    # Time Period & Interval Selector
     st.header("Settings")
-    st.selectbox("Select Period:", options=list(TIME_PERIODS.keys()), index=3, key="selected_period")
-    st.selectbox("Select Interval:", options=list(INTERVALS.keys()), index=0, key="selected_interval")
+    st.selectbox("Period", options=list(TIME_PERIODS.keys()), index=3, key="selected_period")
+    st.selectbox("Interval", options=list(INTERVALS.keys()), index=0, key="selected_interval")
 
 def create_chart(chart_data, name, symbol, current_price, volume, daily_change, pivot_points):
     if chart_data is not None:
-        chart = StreamlitChart(height=525)
+        chart = StreamlitChart(height=400)  # Adjusted height for mobile
         change_color = '#00ff55' if daily_change >= 0 else '#ed4807'
-        chart.layout(background_color='#1E222D', text_color='#FFFFFF', font_size=12)
-        chart.candle_style(up_color='#00ff55', down_color='#ed4807', wick_up_color='#00ff55', wick_down_color='#ed4807')
+        
+        # Chart setup with compact layout for mobile
+        chart.layout(background_color='#FFFFFF', text_color='#333745', font_size=12)
+        chart.candle_style(up_color='#00ff55', down_color='#ed4807')
         chart.crosshair(mode='normal')
         chart.time_scale(right_offset=5, min_bar_spacing=5)
         
-        # Adding pivot line if available
+        # Pivot line if available
         if pivot_points:
             chart.horizontal_line(pivot_points['P'], color='#39FF14', width=1)
         
-        # Display in a container with a title
-        st.markdown(f"<h3 style='color:#FFEB3B'>{name} ({symbol})</h3>", unsafe_allow_html=True)
-        st.markdown(f"<p style='color:#AAB2BD;'>Current Price: ${current_price:.2f} | Volume: {format_volume(volume)} | Change: <span style='color:{change_color}'>{daily_change:.2f}%</span></p>", unsafe_allow_html=True)
+        # Display in card style
+        st.markdown(f"<div class='chart-container'><h2>{name} ({symbol})</h2>", unsafe_allow_html=True)
+        st.markdown(f"<p>Price: ${current_price:.2f} | Vol: {format_volume(volume)} | Change: <span style='color:{change_color}'>{daily_change:.2f}%</span></p>", unsafe_allow_html=True)
+        
         chart.set(chart_data)
         chart.load()
     else:
         st.warning("No data available.")
 
-# Main content with loading animation and dynamic layout
+# Main content in a mobile-friendly layout
 if selected_table:
     stocks_df = get_stocks_from_table(selected_table)
     
@@ -87,14 +141,21 @@ if selected_table:
         )
         create_chart(chart_data, stock['stock_name'], stock['symbol'], current_price, volume, daily_change, pivot_points)
 
-# Navigation buttons in footer
+# Footer with page navigation, adapted for mobile
 st.markdown("<hr>", unsafe_allow_html=True)
 with st.container():
-    cols = st.columns(5)
-    if cols[0].button("Previous", disabled=(current_page == 1)):
+    cols = st.columns([1, 2, 1])
+
+    # Previous button
+    if cols[0].button("◀", key="prev", help="Previous stock", disabled=(current_page == 1)):
         st.session_state.current_page -= 1
 
-    cols[2].markdown(f"<div style='text-align: center; padding: 10px;'>Page {current_page} of {total_pages}</div>", unsafe_allow_html=True)
+    # Page display
+    cols[1].markdown(f"<div class='centered-content'>Page {current_page} of {total_pages}</div>", unsafe_allow_html=True)
 
-    if cols[4].button("Next", disabled=(current_page == total_pages)):
+    # Next button
+    if cols[2].button("▶", key="next", help="Next stock", disabled=(current_page == total_pages)):
         st.session_state.current_page += 1
+
+# Footer with minimalistic style
+st.markdown("<div class='footer'>© 2023 ChartView Pro</div>", unsafe_allow_html=True)
