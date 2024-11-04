@@ -11,17 +11,22 @@ import requests
 from requests.exceptions import RequestException
 from streamlit_extras.row import row
 
-# Time period and interval mappings
+# Enhanced time period and interval mappings with descriptions
 TIME_PERIODS = {
-    '1Y': '1y',
-    '5Y': '5y',
-    'MAX': 'max'
+    '1D': {'value': '1d', 'description': 'Last 24 hours'},
+    '1W': {'value': '1wk', 'description': 'Last 7 days'},
+    '1M': {'value': '1mo', 'description': 'Last 30 days'},
+    '1Y': {'value': '1y', 'description': 'Last 12 months'},
+    '5Y': {'value': '5y', 'description': '5 years history'},
+    'MAX': {'value': 'max', 'description': 'Maximum available data'}
 }
 
 INTERVALS = {
-    'Daily': '1d',
-    'Weekly': '1wk',
-    'Monthly': '1mo'
+    '1min': {'value': '1m', 'description': '1 minute intervals'},
+    '5min': {'value': '5m', 'description': '5 minute intervals'},
+    'Daily': {'value': '1d', 'description': 'Daily intervals'},
+    'Weekly': {'value': '1wk', 'description': 'Weekly intervals'},
+    'Monthly': {'value': '1mo', 'description': 'Monthly intervals'}
 }
 
 @contextmanager
@@ -32,346 +37,339 @@ def get_db_connection():
     finally:
         conn.close()
 
+# Enhanced error handling for database operations
 def get_tables():
-    with get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';")
-        return [table[0] for table in cursor.fetchall()]
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';")
+            return [table[0] for table in cursor.fetchall()]
+    except sqlite3.Error as e:
+        st.error(f"Database error: {str(e)}")
+        return []
 
 def get_stocks_from_table(table_name):
-    with get_db_connection() as conn:
-        query = f"SELECT DISTINCT symbol, stock_name FROM {table_name} ORDER BY symbol;"
-        return pd.read_sql_query(query, conn)
+    try:
+        with get_db_connection() as conn:
+            query = f"SELECT DISTINCT symbol, stock_name FROM {table_name} ORDER BY symbol;"
+            return pd.read_sql_query(query, conn)
+    except sqlite3.Error as e:
+        st.error(f"Error fetching stocks: {str(e)}")
+        return pd.DataFrame(columns=['symbol', 'stock_name'])
 
 def calculate_pivot_points(high, low, close):
     pivot = (high + low + close) / 3
-    return {'P': round(pivot, 2)}
+    r1 = (2 * pivot) - low
+    s1 = (2 * pivot) - high
+    return {
+        'P': round(pivot, 2),
+        'R1': round(r1, 2),
+        'S1': round(s1, 2)
+    }
 
 def format_volume(volume):
-    if volume >= 1_000_000:
+    if volume >= 1_000_000_000:
+        return f'{volume/1_000_000_000:.1f}B'
+    elif volume >= 1_000_000:
         return f'{volume/1_000_000:.1f}M'
     elif volume >= 1_000:
-        return f'{volume/1_000:.0f}K'
-    else:
-        return str(volume)
+        return f'{volume/1_000:.1f}K'
+    return str(volume)
 
 @st.cache_data(ttl=300)
 def fetch_stock_data(ticker, period='1y', interval='1d', retries=3, delay=1):
     for attempt in range(retries):
         try:
-            stock = yf.Ticker(ticker)
-            df = stock.history(period=period, interval=interval)
-            
-            if df.empty:
-                raise ValueError("No data received from Yahoo Finance")
-            
-            return df
-            
-        except (RequestException, ValueError, Exception) as e:
+            with st.spinner(f"Fetching data for {ticker}... Attempt {attempt + 1}/{retries}"):
+                stock = yf.Ticker(ticker)
+                df = stock.history(period=period, interval=interval)
+                
+                if df.empty:
+                    raise ValueError("No data received from Yahoo Finance")
+                
+                return df
+                
+        except (RequestException, ValueError) as e:
             if attempt == retries - 1:
-                st.error(f"Failed to fetch data for {ticker} after {retries} attempts. Error: {str(e)}")
+                st.error(f"Failed to fetch data after {retries} attempts. Please try again later.")
                 return None
             time.sleep(delay)
             delay *= 2
 
-def load_chart_data(symbol, period, interval):
-    ticker = f"{symbol}.NS"
-    try:
-        df = fetch_stock_data(ticker, period=period, interval=interval)
-        
-        if df is None:
-            return None, None, None, None, None
-            
-        df = df.reset_index()
-
-        if not df.empty:
-            prev_month = (datetime.now().replace(day=1) - timedelta(days=1)).strftime('%Y-%m')
-            prev_month_data = df[df['Date'].dt.strftime('%Y-%m') == prev_month]
-
-            if not prev_month_data.empty:
-                high, low, close = prev_month_data['High'].max(), prev_month_data['Low'].min(), prev_month_data['Close'].iloc[-1]
-                pivot_points = calculate_pivot_points(high, low, close)
-            else:
-                pivot_points = None
-
-            chart_data = pd.DataFrame({
-                "time": df["Date"].dt.strftime("%Y-%m-%d"),
-                "open": df["Open"], 
-                "high": df["High"],
-                "low": df["Low"], 
-                "close": df["Close"],
-                "volume": df["Volume"]
-            })
-
-            try:
-                today = pd.Timestamp.now().strftime('%Y-%m-%d')
-                today_data = df[df['Date'].dt.strftime('%Y-%m-%d') == today]
-                
-                if today_data.empty:
-                    current_price = df['Close'].iloc[-1]
-                    prev_close = df['Close'].iloc[-2] if len(df) > 1 else current_price
-                else:
-                    today_idx = df[df['Date'].dt.strftime('%Y-%m-%d') == today].index[0]
-                    current_price = df['Close'].iloc[today_idx]
-                    prev_close = df['Close'].iloc[today_idx - 1] if today_idx > 0 else current_price
-
-                daily_change = ((current_price - prev_close) / prev_close) * 100
-                volume = df['Volume'].iloc[-1]
-
-            except (IndexError, ZeroDivisionError) as e:
-                st.warning(f"Unable to calculate metrics for {symbol}. Error: {str(e)}")
-                current_price = df['Close'].iloc[-1] if not df['Close'].empty else 0
-                daily_change = 0
-                volume = 0
-
-            return chart_data, current_price, volume, daily_change, pivot_points
-            
-    except Exception as e:
-        st.error(f"""
-            Error loading data for {symbol}. This could be due to:
-            - Temporary connection issues with Yahoo Finance
-            - Rate limiting
-            - Invalid symbol
-            
-            Please try again in a few moments. Error: {str(e)}
-        """)
-    return None, None, None, None, None
-
-def create_chart(chart_data, name, symbol, current_price, volume, daily_change, pivot_points):
-    if chart_data is not None:
-        chart = StreamlitChart(height=500)  # Reduced height
-        change_color = '#00ff55' if daily_change >= 0 else '#ed4807'
-        change_symbol = '+' if daily_change >= 0 else '-'
-        chart.layout(background_color='#1E222D', text_color='#FFFFFF', font_size=12, font_family='Helvetica')
-        chart.candle_style(up_color='#00ff55', down_color='#ed4807', wick_up_color='#00ff55', wick_down_color='#ed4807')
-        formatted_volume = format_volume(volume)
-        
-        if pivot_points:
-            chart.horizontal_line(pivot_points['P'], color='#39FF14', width=1)
-
-        chart.volume_config(up_color='#00ff55', down_color='#ed4807')
-        chart.crosshair(mode='normal')
-        chart.time_scale(right_offset=5, min_bar_spacing=5)
-        chart.grid(vert_enabled=False, horz_enabled=False)  
-        chart.legend(visible=True, font_size=12)
-        chart.topbar.textbox(
-            'info',
-            f'{name} |{change_symbol}{abs(daily_change):.2f}%'
-        )
-        chart.price_line(label_visible=True, line_visible=True)
-        chart.fit()
-        chart.set(chart_data)
-        chart.load()
-    else:
-        st.warning("No data available.")
-
-st.set_page_config(layout="wide", page_title="ChartView 2.0", page_icon="📈")
-
-# Custom CSS optimized for mobile
-st.markdown("""
-    <style>
-        .block-container {
-            padding-top: 0.5rem !important;
-            padding-left: 0.5rem !important;
-            padding-right: 0.5rem !important;
-            max-width: 100% !important;
-        }
-        
-        /* Make selectboxes more compact */
-        .stSelectbox {
-            margin-bottom: 0.25rem !important;
-        }
-        
-        .stSelectbox > div > div {
-            padding: 0.25rem !important;
-        }
-        
-        /* Reduce selectbox height */
-        .stSelectbox > div > div > div {
-            min-height: 1.5rem !important;
-            line-height: 1.5rem !important;
-        }
-        
-        /* Make columns tighter */
-        .row-widget.stHorizontal > div {
-            padding: 0.1rem !important;
-            flex: 1;
-        }
-        
-        /* Compact navigation buttons */
-        .stButton > button {
-            padding: 0.25rem 0.5rem !important;
-            font-size: 0.875rem !important;
-            height: auto !important;
-            min-height: 1.5rem !important;
-            width: 100% !important;
-        }
-        
-        /* Center page indicator */
-        .page-info {
-            padding: 0.25rem !important;
-            border-radius: 0.25rem !important;
-            background-color: #2d3748;
-            color: white;
-            text-align: center;
-            font-size: 0.875rem !important;
-            line-height: 1.5rem !important;
-            margin: 0 0.25rem !important;
-        }
-        
-        /* Adjust chart container for mobile */
-        .chart-container {
-            height: 60vh !important;
-            margin: 0.5rem 0 !important;
-        }
-        
-        /* Make header more compact */
-        h1 {
-            font-size: 1.25rem !important;
-            margin: 0.5rem 0 !important;
-            padding: 0 !important;
-        }
-        
-        /* Remove extra padding from containers */
-        .css-ocqkz7 {
-            gap: 0.5rem !important;
-        }
-        
-        .css-1r6slb0 {
-            padding: 0.5rem !important;
-        }
-    </style>
-""", unsafe_allow_html=True)
-
-# Initialize session state
-if 'selected_period' not in st.session_state:
-    st.session_state.selected_period = '1Y'
-if 'selected_interval' not in st.session_state:
-    st.session_state.selected_interval = 'Daily'
-
-# Compact header
-st.markdown("<h1 style='text-align: center;'>📊 ChartView Mobile</h1>", unsafe_allow_html=True)
-
-# Create a single row for all controls using custom columns
-col1, col2, col3 = st.columns([1, 0.5, 0.5])
-
-with col1:
-    tables = get_tables()
-    selected_table = st.selectbox(
-        "",  # Remove label to save space
-        tables,
-        key="selected_table",
-        help="Select Index"  # Show help text instead of label
-    )
-
-with col2:
-    new_period = st.selectbox(
-        "",
-        list(TIME_PERIODS.keys()),
-        index=list(TIME_PERIODS.keys()).index(st.session_state.get('selected_period', '1Y')),
-        key="period_selector",
-        help="Time Period"
-    )
-
-with col3:
-    new_interval = st.selectbox(
-        "",
-        list(INTERVALS.keys()),
-        index=list(INTERVALS.keys()).index(st.session_state.get('selected_interval', 'Daily')),
-        key="interval_selector",
-        help="Interval"
-    )
-
-# Update session states
-if new_period != st.session_state.get('selected_period'):
-    st.session_state.selected_period = new_period
-    st.rerun()
-
-if new_interval != st.session_state.get('selected_interval'):
-    st.session_state.selected_interval = new_interval
-    st.rerun()
-
-# Main chart section
-if selected_table:
-    stocks_df = get_stocks_from_table(selected_table)
+def create_modern_chart(chart_data, stock_info, metrics):
+    chart = StreamlitChart(height=500)
     
-    CHARTS_PER_PAGE = 1
-    total_pages = math.ceil(len(stocks_df) / CHARTS_PER_PAGE)
+    # Modern color scheme
+    COLORS = {
+        'up': '#00c853',
+        'down': '#ff3d00',
+        'neutral': '#90a4ae',
+        'grid': '#37474f',
+        'text': '#eceff1',
+        'background': '#263238'
+    }
+    
+    change_color = COLORS['up'] if metrics['daily_change'] >= 0 else COLORS['down']
+    change_symbol = '+' if metrics['daily_change'] >= 0 else ''
+    
+    # Enhanced chart configuration
+    chart.layout(
+        background_color=COLORS['background'],
+        text_color=COLORS['text'],
+        font_size=14,
+        font_family='Inter'
+    )
+    
+    chart.candle_style(
+        up_color=COLORS['up'],
+        down_color=COLORS['down'],
+        wick_up_color=COLORS['up'],
+        wick_down_color=COLORS['down']
+    )
+    
+    # Add technical indicators
+    if metrics['pivot_points']:
+        for level, value in metrics['pivot_points'].items():
+            chart.horizontal_line(
+                value,
+                color=COLORS['neutral'],
+                line_style='dashed',
+                line_width=1,
+                label=f'{level}: {value}'
+            )
+    
+    chart.volume_config(
+        up_color=COLORS['up'],
+        down_color=COLORS['down']
+    )
+    
+    # Enhanced crosshair and navigation
+    chart.crosshair(
+        mode='magnet',
+        line_color=COLORS['neutral']
+    )
+    
+    chart.time_scale(
+        right_offset=10,
+        min_bar_spacing=6,
+        visible=True
+    )
+    
+    chart.grid(
+        vert_enabled=True,
+        horz_enabled=True,
+        vert_color=COLORS['grid'],
+        horz_color=COLORS['grid']
+    )
+    
+    # Improved legend
+    chart.legend(
+        visible=True,
+        font_size=12,
+        text_color=COLORS['text']
+    )
+    
+    # Enhanced top bar with more information
+    formatted_price = f"₹{metrics['current_price']:,.2f}"
+    formatted_volume = format_volume(metrics['volume'])
+    chart.topbar.textbox(
+        'info',
+        f"{stock_info['stock_name']} ({stock_info['symbol']}) | {change_symbol}{metrics['daily_change']:.2f}% | {formatted_price} | Vol: {formatted_volume}"
+    )
+    
+    chart.price_line(
+        label_visible=True,
+        line_visible=True,
+        color=change_color
+    )
+    
+    chart.fit()
+    chart.set(chart_data)
+    return chart
 
+def main():
+    st.set_page_config(
+        layout="wide",
+        page_title="📈 ChartView Pro",
+        page_icon="📈",
+        initial_sidebar_state="collapsed"
+    )
+
+    # Modern UI styling
+    st.markdown("""
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+            
+            :root {
+                --primary-color: #2196f3;
+                --background-color: #1a1a1a;
+                --text-color: #ffffff;
+            }
+            
+            .stApp {
+                font-family: 'Inter', sans-serif;
+                background-color: var(--background-color);
+                color: var(--text-color);
+            }
+            
+            .stSelectbox > div > div {
+                background-color: #2d2d2d;
+                border: 1px solid #404040;
+                border-radius: 8px;
+                color: var(--text-color);
+            }
+            
+            .stButton > button {
+                border-radius: 8px;
+                padding: 0.5rem 1rem;
+                background-color: var(--primary-color);
+                color: white;
+                border: none;
+                transition: all 0.3s ease;
+            }
+            
+            .stButton > button:hover {
+                background-color: #1976d2;
+                transform: translateY(-1px);
+            }
+            
+            .chart-container {
+                background-color: #1e1e1e;
+                border-radius: 12px;
+                padding: 1rem;
+                margin: 1rem 0;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            }
+            
+            .metrics-container {
+                background-color: #2d2d2d;
+                border-radius: 8px;
+                padding: 1rem;
+                margin: 0.5rem 0;
+            }
+            
+            .stock-search {
+                margin: 1rem 0;
+            }
+            
+            /* Mobile optimizations */
+            @media (max-width: 768px) {
+                .block-container {
+                    padding: 0.5rem !important;
+                }
+                
+                .stButton > button {
+                    width: 100%;
+                }
+                
+                .chart-container {
+                    padding: 0.5rem;
+                }
+            }
+        </style>
+    """, unsafe_allow_html=True)
+
+    # App header with modern design
+    st.markdown("""
+        <div style='text-align: center; padding: 1rem;'>
+            <h1 style='font-size: 2rem; font-weight: 600; margin-bottom: 0.5rem;'>📈 ChartView Pro</h1>
+            <p style='font-size: 1rem; color: #90a4ae;'>Professional Stock Analysis Tool</p>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # Initialize session state
+    if 'selected_period' not in st.session_state:
+        st.session_state.selected_period = '1Y'
+    if 'selected_interval' not in st.session_state:
+        st.session_state.selected_interval = 'Daily'
     if 'current_page' not in st.session_state:
         st.session_state.current_page = 1
 
-    start_idx = (st.session_state.current_page - 1) * CHARTS_PER_PAGE
-    stock = stocks_df.iloc[start_idx]
-
-    # Load and display chart
-    with st.spinner(f"Loading {stock['stock_name']}..."):
-        chart_data, current_price, volume, daily_change, pivot_points = load_chart_data(
-            stock['symbol'],
-            TIME_PERIODS[st.session_state.selected_period],
-            INTERVALS[st.session_state.selected_interval]
-        )
+    # Modern control panel
+    with st.container():
+        col1, col2, col3 = st.columns([2, 1, 1])
         
-        if chart_data is not None:
-            chart = StreamlitChart(height=400)  # Reduced height for mobile
-            change_color = '#00ff55' if daily_change >= 0 else '#ed4807'
-            change_symbol = '+' if daily_change >= 0 else '-'
-            
-            # Chart configuration
-            chart.layout(
-                background_color='#1E222D',
-                text_color='#FFFFFF',
-                font_size=12,
-                font_family='Helvetica'
+        with col1:
+            tables = get_tables()
+            selected_table = st.selectbox(
+                "Select Market Index",
+                tables,
+                help="Choose the market index to analyze"
             )
-            chart.candle_style(
-                up_color='#00ff55',
-                down_color='#ed4807',
-                wick_up_color='#00ff55',
-                wick_down_color='#ed4807'
-            )
-            
-            formatted_volume = format_volume(volume)
-            
-            if pivot_points:
-                chart.horizontal_line(pivot_points['P'], color='#39FF14', width=1)
 
-            chart.volume_config(up_color='#00ff55', down_color='#ed4807')
-            chart.crosshair(mode='normal')
-            chart.time_scale(right_offset=5, min_bar_spacing=5)
-            chart.grid(vert_enabled=False, horz_enabled=False)
-            chart.legend(visible=True, font_size=12)
-            chart.topbar.textbox(
-                'info',
-                f'{stock["stock_name"]} | {change_symbol}{abs(daily_change):.2f}%'
+        with col2:
+            period = st.selectbox(
+                "Time Period",
+                list(TIME_PERIODS.keys()),
+                format_func=lambda x: f"{x} ({TIME_PERIODS[x]['description']})",
+                index=list(TIME_PERIODS.keys()).index(st.session_state.selected_period)
             )
-            chart.price_line(label_visible=True, line_visible=True)
-            chart.fit()
-            chart.set(chart_data)
-            chart.load()
 
-    # Compact navigation controls in a single row
-    nav_col1, nav_col2, nav_col3 = st.columns([1, 0.5, 0.5])
-    
-    with nav_col1:
-        st.button(
-            "←", 
-            disabled=(st.session_state.current_page == 1),
-            on_click=lambda: setattr(st.session_state, 'current_page', st.session_state.current_page - 1),
-            key="prev_button"
-        )
-    
-    with nav_col2:
-        st.markdown(f"""
-            <div class="page-info">
-                {st.session_state.current_page}/{total_pages}
-            </div>
-        """, unsafe_allow_html=True)
-    
-    with nav_col3:
-        st.button(
-            "→", 
-            disabled=(st.session_state.current_page == total_pages),
-            on_click=lambda: setattr(st.session_state, 'current_page', st.session_state.current_page + 1),
-            key="next_button"
-        )
+        with col3:
+            interval = st.selectbox(
+                "Interval",
+                list(INTERVALS.keys()),
+                format_func=lambda x: f"{x} ({INTERVALS[x]['description']})",
+                index=list(INTERVALS.keys()).index(st.session_state.selected_interval)
+            )
+
+    # Update session state and handle changes
+    if period != st.session_state.selected_period:
+        st.session_state.selected_period = period
+        st.experimental_rerun()
+
+    if interval != st.session_state.selected_interval:
+        st.session_state.selected_interval = interval
+        st.experimental_rerun()
+
+    # Main chart section
+    if selected_table:
+        stocks_df = get_stocks_from_table(selected_table)
+        
+        if not stocks_df.empty:
+            CHARTS_PER_PAGE = 1
+            total_pages = math.ceil(len(stocks_df) / CHARTS_PER_PAGE)
+            start_idx = (st.session_state.current_page - 1) * CHARTS_PER_PAGE
+            
+            # Get current stock
+            stock = stocks_df.iloc[start_idx]
+            
+            # Load chart data
+            chart_data, metrics = load_chart_data(
+                stock['symbol'],
+                TIME_PERIODS[st.session_state.selected_period]['value'],
+                INTERVALS[st.session_state.selected_interval]['value']
+            )
+            
+            if chart_data is not None:
+                # Create chart container
+                with st.container():
+                    st.markdown("<div class='chart-container'>", unsafe_allow_html=True)
+                    chart = create_modern_chart(chart_data, stock, metrics)
+                    chart.load()
+                    st.markdown("</div>", unsafe_allow_html=True)
+                
+                # Navigation controls
+                col1, col2, col3 = st.columns([1, 2, 1])
+                
+                with col1:
+                    if st.button("← Previous", disabled=(st.session_state.current_page == 1)):
+                        st.session_state.current_page -= 1
+                        st.experimental_rerun()
+                
+                with col2:
+                    st.markdown(f"""
+                        <div style='text-align: center; padding: 0.5rem;'>
+                            <span style='background-color: #2d2d2d; padding: 0.5rem 1rem; border-radius: 4px;'>
+                                Page {st.session_state.current_page} of {total_pages}
+                            </span>
+                        </div>
+                    """, unsafe_allow_html=True)
+                
+                with col3:
+                    if st.button("Next →", disabled=(st.session_state.current_page == total_pages)):
+                        st.session_state.current_page += 1
+                        st.experimental_rerun()
+
+if __name__ == "__main__":
+    main()
