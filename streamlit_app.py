@@ -248,7 +248,7 @@ if 'search_term' not in st.session_state:
 
 # Header with title
 st.markdown("""
-    <h1 style='text-align: center; margin-bottom: 1rem;'>📊 ChartView 2.0</h1>
+    <h3 style='text-align: center; margin-bottom: 1rem;'>📊 ChartView 2.0</h3>
 """, unsafe_allow_html=True)
 
 # Sidebar
