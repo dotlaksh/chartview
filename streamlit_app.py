@@ -216,7 +216,7 @@ st.markdown("""
 
 # Initialize session state
 if 'selected_period' not in st.session_state:
-    st.session_state.selected_period = 'YTD'
+    st.session_state.selected_period = '1Y'
 if 'selected_interval' not in st.session_state:
     st.session_state.selected_interval = 'Daily'
 
