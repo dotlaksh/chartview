@@ -13,7 +13,12 @@ from streamlit_extras.row import row
 
 # Time period and interval mappings
 TIME_PERIODS = {
+    '1M': '1mo',
+    '3M': '3mo',
+    '6M': '6mo',
+    'YTD': 'ytd',
     '1Y': '1y',
+    '2Y': '2y',
     '5Y': '5y',
     'MAX': 'max'
 }
@@ -230,12 +235,14 @@ col1, col2, col3, col4 = st.columns([2, 1, 1, 2])
 with col1:
     tables = get_tables()
     selected_table = st.selectbox(
+        "Select Market Segment:",
         tables,
         key="selected_table"
     )
 
 with col2:
     new_period = st.selectbox(
+        "Time Period",
         list(TIME_PERIODS.keys()),
         index=list(TIME_PERIODS.keys()).index(st.session_state.selected_period),
         key="period_selector"
@@ -246,6 +253,7 @@ with col2:
 
 with col3:
     new_interval = st.selectbox(
+        "Interval",
         list(INTERVALS.keys()),
         index=list(INTERVALS.keys()).index(st.session_state.selected_interval),
         key="interval_selector"
@@ -359,4 +367,9 @@ if selected_table:
             use_container_width=True
         )
 
-   
+    # Keyboard navigation hint
+    st.markdown("""
+        <div style='text-align: center; color: #666; font-size: 0.8rem; margin-top: 0.5rem;'>
+            Use ← → arrow keys for quick navigation
+        </div>
+    """, unsafe_allow_html=True)
