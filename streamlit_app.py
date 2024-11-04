@@ -168,37 +168,6 @@ def create_chart(chart_data, name, symbol, current_price, volume, daily_change, 
     else:
         st.warning("No data available.")
 
-import pandas as pd
-import streamlit as st
-import sqlite3
-import yfinance as yf
-from lightweight_charts.widgets import StreamlitChart
-from contextlib import contextmanager
-import math
-from datetime import datetime, timedelta
-import time
-import requests
-from requests.exceptions import RequestException
-from st_aggrid import AgGrid, GridOptionsBuilder
-from st_aggrid.grid_options_builder import GridOptionsBuilder
-from streamlit_extras.row import row
-
-# Time period and interval mappings remain the same
-TIME_PERIODS = {
-    '1Y': '1y',
-    '5Y': '5y',
-    'MAX': 'max'
-}
-
-INTERVALS = {
-    'Daily': '1d',
-    'Weekly': '1wk',
-    'Monthly': '1mo'
-}
-
-# Database and data fetching functions remain the same...
-# [Previous functions remain unchanged until the UI part]
-
 st.set_page_config(layout="wide", page_title="ChartView 2.0", page_icon="📈")
 
 # Updated CSS for better mobile responsiveness
