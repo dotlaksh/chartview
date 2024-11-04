@@ -253,7 +253,7 @@ if 'selected_interval' not in st.session_state:
 st.markdown("<h1 style='text-align: center;'>📊 ChartView Mobile</h1>", unsafe_allow_html=True)
 
 # Create a single row for all controls using custom columns
-col1, col2, col3 = st.columns([1, 1, 1])
+col1, col2, col3 = st.columns([1, 0.5, 0.5])
 
 with col1:
     tables = get_tables()
@@ -351,7 +351,7 @@ if selected_table:
             chart.load()
 
     # Compact navigation controls in a single row
-    nav_col1, nav_col2, nav_col3 = st.columns([1, 1, 1])
+    nav_col1, nav_col2, nav_col3 = st.columns([1, 0.5, 0.5])
     
     with nav_col1:
         st.button(
