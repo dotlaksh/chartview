@@ -315,9 +315,48 @@ if selected_table:
                 INTERVALS[st.session_state.selected_interval]
             )
             
-            # [Rest of the chart creation code remains the same]
-            create_responsive_chart(chart_data, stock['stock_name'], stock['symbol'], 
-                                 current_price, volume, daily_change, pivot_points)
+    def create_responsive_chart(chart_data, name, symbol, current_price, volume, daily_change, pivot_points):
+        if chart_data is not None:
+            chart = StreamlitChart(height=600)  # Increased base height
+            change_color = '#00ff55' if daily_change >= 0 else '#ed4807'
+            change_symbol = '+' if daily_change >= 0 else '-'
+            
+            # Chart configuration
+            chart.layout(
+                background_color='#1E222D',
+                text_color='#FFFFFF',
+                font_size=12,
+                font_family='Helvetica'
+            )
+            chart.candle_style(
+                up_color='#00ff55',
+                down_color='#ed4807',
+                wick_up_color='#00ff55',
+                wick_down_color='#ed4807'
+            )
+            
+            formatted_volume = format_volume(volume)
+            
+            if pivot_points:
+                chart.horizontal_line(pivot_points['P'], color='#39FF14', width=1)
+
+            chart.volume_config(up_color='#00ff55', down_color='#ed4807')
+            chart.crosshair(mode='normal')
+            chart.time_scale(right_offset=5, min_bar_spacing=5)
+            chart.grid(vert_enabled=False, horz_enabled=False)
+            chart.legend(visible=True, font_size=12)
+            chart.topbar.textbox(
+                'info',
+                f'{name} | {change_symbol}{abs(daily_change):.2f}% | Volume: {formatted_volume}'
+            )
+            chart.price_line(label_visible=True, line_visible=True)
+            chart.fit()
+            chart.set(chart_data)
+            chart.load()
+        else:
+            st.warning("No data available.")
+        create_responsive_chart(chart_data, stock['stock_name'], stock['symbol'], 
+                            current_price, volume, daily_change, pivot_points)
 
         # Navigation controls
         cols = st.columns([2, 2, 1, 0.5, 0.5])
