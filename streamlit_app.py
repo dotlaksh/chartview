@@ -14,7 +14,6 @@ from streamlit_extras.row import row
 # Time period and interval mappings
 TIME_PERIODS = {
     '1Y': '1y',
-    '2Y': '2y',
     '5Y': '5y',
     'MAX': 'max'
 }
