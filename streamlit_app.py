@@ -355,9 +355,3 @@ if selected_table:
             use_container_width=True
         )
 
-    # Keyboard navigation hint
-    st.markdown("""
-        <div style='text-align: center; color: #666; font-size: 0.8rem; margin-top: 0.5rem;'>
-            Use ← → arrow keys for quick navigation
-        </div>
-    """, unsafe_allow_html=True)
