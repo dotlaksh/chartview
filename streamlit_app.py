@@ -9,10 +9,7 @@ from datetime import datetime, timedelta
 import time
 import requests
 from requests.exceptions import RequestException
-from st_aggrid import AgGrid, GridOptionsBuilder
-from st_aggrid.grid_options_builder import GridOptionsBuilder
 from streamlit_extras.row import row
-
 
 # Time period and interval mappings
 TIME_PERIODS = {
@@ -170,14 +167,12 @@ def create_chart(chart_data, name, symbol, current_price, volume, daily_change, 
 
 st.set_page_config(layout="wide", page_title="ChartView 2.0", page_icon="📈")
 
-# Updated CSS for better mobile responsiveness
+# Custom CSS for responsive design
 st.markdown("""
     <style>
         .block-container {
             padding-top: 1rem !important;
-            max-width: 100% !important;
-            padding-left: 1rem !important;
-            padding-right: 1rem !important;
+            max-width: 90% !important;
         }
         .stSelectbox {
             margin-bottom: 0.5rem;
@@ -185,23 +180,9 @@ st.markdown("""
         .chart-container {
             margin: 1rem 0;
         }
-        .controls-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            align-items: center;
-            margin-bottom: 1rem;
-        }
-        .control-item {
-            flex: 1;
-            min-width: 120px;
-        }
-        @media (max-width: 768px) {
-            .controls-container {
-                flex-direction: row;
-            }
-            .control-item {
-                min-width: 100px;
+        @media (min-width: 1200px) {
+            .chart-container {
+                height: 800px !important;
             }
         }
         .nav-container {
@@ -219,20 +200,17 @@ st.markdown("""
             text-align: center;
             min-width: 100px;
         }
-        .ag-theme-streamlit {
-            --ag-header-background-color: #1E222D;
-            --ag-header-foreground-color: white;
-            --ag-background-color: #2d3748;
-            --ag-foreground-color: white;
-            --ag-row-hover-color: #4a5568;
-            --ag-selected-row-background-color: #4a5568;
+        .stButton button {
+            min-width: 100px;
+            border-radius: 0.375rem;
+        }
+        .header-row {
+            margin-bottom: 1rem;
+        }
+        .controls-row {
+            margin-bottom: 0.5rem;
         }
     </style>
-""", unsafe_allow_html=True)
-
-# Header
-st.markdown("""
-    <h1 style='text-align: center; margin-bottom: 1rem;'>📊 ChartView 2.0</h1>
 """, unsafe_allow_html=True)
 
 # Initialize session state
@@ -241,87 +219,138 @@ if 'selected_period' not in st.session_state:
 if 'selected_interval' not in st.session_state:
     st.session_state.selected_interval = 'Daily'
 
-# Create a container for controls
-with st.container():
-    # Use columns for responsive layout
-    cols = st.columns([1, 1, 1])
-    
-    with cols[0]:
-        tables = get_tables()
-        selected_table = st.selectbox(
-            "Index:",
-            tables,
-            key="selected_table"
-        )
+# Header with title
+st.markdown("""
+    <h1 style='text-align: center; margin-bottom: 1rem;'>📊 ChartView 2.0</h1>
+""", unsafe_allow_html=True)
 
-    with cols[1]:
-        new_period = st.selectbox(
-            "Time Period",
-            list(TIME_PERIODS.keys()),
-            index=list(TIME_PERIODS.keys()).index(st.session_state.selected_period),
-            key="period_selector"
-        )
+# Top controls section
+col1, col2, col3, col4 = st.columns([0.5, 0.5, 0.5, 2])
 
-    with cols[2]:
-        new_interval = st.selectbox(
-            "Interval",
-            list(INTERVALS.keys()),
-            index=list(INTERVALS.keys()).index(st.session_state.selected_interval),
-            key="interval_selector"
-        )
+with col1:
+    tables = get_tables()
+    selected_table = st.selectbox(
+        "Index:",
+        tables,
+        key="selected_table"
+    )
 
-# Update session states
-if new_period != st.session_state.selected_period:
-    st.session_state.selected_period = new_period
-    st.rerun()
+with col2:
+    new_period = st.selectbox(
+        "Time Period",
+        list(TIME_PERIODS.keys()),
+        index=list(TIME_PERIODS.keys()).index(st.session_state.selected_period),
+        key="period_selector"
+    )
+    if new_period != st.session_state.selected_period:
+        st.session_state.selected_period = new_period
+        st.rerun()
 
-if new_interval != st.session_state.selected_interval:
-    st.session_state.selected_interval = new_interval
-    st.rerun()
+with col3:
+    new_interval = st.selectbox(
+        "Interval",
+        list(INTERVALS.keys()),
+        index=list(INTERVALS.keys()).index(st.session_state.selected_interval),
+        key="interval_selector"
+    )
+    if new_interval != st.session_state.selected_interval:
+        st.session_state.selected_interval = new_interval
+        st.rerun()
 
-# Main content
+# Update session state for table selection
+if 'last_selected_table' not in st.session_state or st.session_state.last_selected_table != st.session_state.selected_table:
+    st.session_state.current_page = 1
+    st.session_state.last_selected_table = st.session_state.selected_table
+
+# Main chart section
 if selected_table:
     stocks_df = get_stocks_from_table(selected_table)
     
-    # Configure AgGrid
-    gb = GridOptionsBuilder.from_dataframe(stocks_df)
-    gb.configure_selection(selection_mode='single', use_checkbox=False)
-    gb.configure_grid_options(domLayout='normal')
-    gb.configure_column("symbol", headerName="Symbol", width=100)
-    gb.configure_column("stock_name", headerName="Stock Name", width=200)
-    
-    grid_response = AgGrid(
-        stocks_df,
-        gridOptions=gb.build(),
-        update_mode='selection_changed',
-        height=200,
-        theme='streamlit',
-        allow_unsafe_jscode=True
-    )
+    CHARTS_PER_PAGE = 1
+    total_pages = math.ceil(len(stocks_df) / CHARTS_PER_PAGE)
 
-    selected_rows = grid_response['selected_rows']
-    
-    if selected_rows:
-        selected_stock = selected_rows[0]
+    if 'current_page' not in st.session_state:
+        st.session_state.current_page = 1
+
+    start_idx = (st.session_state.current_page - 1) * CHARTS_PER_PAGE
+    stock = stocks_df.iloc[start_idx]
+
+    with st.spinner(f"Loading {stock['stock_name']}..."):
+        chart_data, current_price, volume, daily_change, pivot_points = load_chart_data(
+            stock['symbol'],
+            TIME_PERIODS[st.session_state.selected_period],
+            INTERVALS[st.session_state.selected_interval]
+        )
         
-        with st.spinner(f"Loading {selected_stock['stock_name']}..."):
-            chart_data, current_price, volume, daily_change, pivot_points = load_chart_data(
-                selected_stock['symbol'],
-                TIME_PERIODS[st.session_state.selected_period],
-                INTERVALS[st.session_state.selected_interval]
-            )
-            
+        # Determine chart height based on viewport
+        def create_responsive_chart(chart_data, name, symbol, current_price, volume, daily_change, pivot_points):
             if chart_data is not None:
-                create_chart(
-                    chart_data,
-                    selected_stock['stock_name'],
-                    selected_stock['symbol'],
-                    current_price,
-                    volume,
-                    daily_change,
-                    pivot_points
+                chart = StreamlitChart(height=600)  # Increased base height
+                change_color = '#00ff55' if daily_change >= 0 else '#ed4807'
+                change_symbol = '+' if daily_change >= 0 else '-'
+                
+                # Chart configuration
+                chart.layout(
+                    background_color='#1E222D',
+                    text_color='#FFFFFF',
+                    font_size=12,
+                    font_family='Helvetica'
                 )
+                chart.candle_style(
+                    up_color='#00ff55',
+                    down_color='#ed4807',
+                    wick_up_color='#00ff55',
+                    wick_down_color='#ed4807'
+                )
+                
+                formatted_volume = format_volume(volume)
+                
+                if pivot_points:
+                    chart.horizontal_line(pivot_points['P'], color='#39FF14', width=1)
+
+                chart.volume_config(up_color='#00ff55', down_color='#ed4807')
+                chart.crosshair(mode='normal')
+                chart.time_scale(right_offset=5, min_bar_spacing=5)
+                chart.grid(vert_enabled=False, horz_enabled=False)
+                chart.legend(visible=True, font_size=12)
+                chart.topbar.textbox(
+                    'info',
+                    f'{name} | {change_symbol}{abs(daily_change):.2f}% | Volume: {formatted_volume}'
+                )
+                chart.price_line(label_visible=True, line_visible=True)
+                chart.fit()
+                chart.set(chart_data)
+                chart.load()
             else:
-                st.warning("No data available for the selected stock.")
-    else:
-        st.info("Please select a stock from the grid above.")
+                st.warning("No data available.")
+
+        create_responsive_chart(chart_data, stock['stock_name'], stock['symbol'], 
+                              current_price, volume, daily_change, pivot_points)
+
+    # Navigation controls
+    cols = st.columns([2, 1, 2, 1, 2])
+    
+    with cols[0]:
+        st.button(
+            "← Previous", 
+            disabled=(st.session_state.current_page == 1), 
+            on_click=lambda: setattr(st.session_state, 'current_page', st.session_state.current_page - 1),
+            key="prev_button",
+            use_container_width=True
+        )
+    
+    with cols[2]:
+        st.markdown(f"""
+            <div class="page-info">
+                Stock {st.session_state.current_page} of {total_pages}
+            </div>
+        """, unsafe_allow_html=True)
+    
+    with cols[4]:
+        st.button(
+            "Next →", 
+            disabled=(st.session_state.current_page == total_pages), 
+            on_click=lambda: setattr(st.session_state, 'current_page', st.session_state.current_page + 1),
+            key="next_button",
+            use_container_width=True
+        )
