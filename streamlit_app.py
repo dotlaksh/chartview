@@ -225,9 +225,9 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Top controls section
-col1, col2, col3, col4 = st.columns([0.5, 0.5, 0.5, 2])
+cols = st.columns([0.5, 2, 0.5, 0.5])
 
-with col1:
+with col[0]:
     tables = get_tables()
     selected_table = st.selectbox(
         "Index:",
@@ -235,7 +235,7 @@ with col1:
         key="selected_table"
     )
 
-with col2:
+with col[2]:
     new_period = st.selectbox(
         "Time Period",
         list(TIME_PERIODS.keys()),
@@ -246,7 +246,7 @@ with col2:
         st.session_state.selected_period = new_period
         st.rerun()
 
-with col3:
+with col[3]:
     new_interval = st.selectbox(
         "Interval",
         list(INTERVALS.keys()),
@@ -330,7 +330,7 @@ if selected_table:
     # Navigation controls
     cols = st.columns([0.5, 1, 2, 1, 0.5])
     
-    with cols[0]:
+    with cols[0]:wide
         st.button(
             "← Previous", 
             disabled=(st.session_state.current_page == 1), 
