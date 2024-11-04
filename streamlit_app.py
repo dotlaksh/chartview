@@ -151,7 +151,7 @@ def load_chart_data(symbol, period, interval):
 
 def create_chart(chart_data, name, symbol, current_price, volume, daily_change, pivot_points):
     if chart_data is not None:
-        chart = StreamlitChart(height=600)
+        chart = StreamlitChart(height=600)  # Increased base height
         change_color = '#00ff55' if daily_change >= 0 else '#ed4807'
         change_symbol = '+' if daily_change >= 0 else '-'
         
@@ -286,22 +286,11 @@ with st.sidebar:
         st.rerun()
     
     st.markdown("### Search")
-    stock_options = get_stocks_from_table(selected_table)
-    stock_symbols = stock_options['symbol'].tolist()
-    stock_names = stock_options['stock_name'].tolist()
-    all_options = stock_symbols + stock_names
-    
-    search_term = st.experimental_data_editor(
-        st.session_state.search_term,
-        num_rows=1,
-        num_cols=1,
-        key="stock_search",
-        height=50,
-        use_container_width=True,
-        columns=["Search"],
-        on_change=lambda: setattr(st.session_state, 'search_term', st.experimental_data_editor.last_widget_data)
+    search_term = st.text_input(
+        "Search stocks by name or symbol:",
+        value=st.session_state.search_term,
+        key="stock_search"
     )
-    
     if search_term != st.session_state.search_term:
         st.session_state.search_term = search_term
         st.session_state.current_page = 1
