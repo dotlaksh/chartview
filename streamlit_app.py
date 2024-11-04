@@ -167,48 +167,78 @@ def create_chart(chart_data, name, symbol, current_price, volume, daily_change, 
 
 st.set_page_config(layout="wide", page_title="ChartView 2.0", page_icon="📈")
 
-# Custom CSS for responsive design
+# Custom CSS optimized for mobile
 st.markdown("""
     <style>
         .block-container {
-            padding-top: 1rem !important;
-            max-width: 90% !important;
+            padding-top: 0.5rem !important;
+            padding-left: 0.5rem !important;
+            padding-right: 0.5rem !important;
+            max-width: 100% !important;
         }
+        
+        /* Make selectboxes more compact */
         .stSelectbox {
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.25rem !important;
         }
-        .chart-container {
-            margin: 1rem 0;
+        
+        .stSelectbox > div > div {
+            padding: 0.25rem !important;
         }
-        @media (min-width: 1200px) {
-            .chart-container {
-                height: 800px !important;
-            }
+        
+        /* Reduce selectbox height */
+        .stSelectbox > div > div > div {
+            min-height: 1.5rem !important;
+            line-height: 1.5rem !important;
         }
-        .nav-container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 1rem 0;
-            gap: 1rem;
+        
+        /* Make columns tighter */
+        .row-widget.stHorizontal > div {
+            padding: 0.1rem !important;
+            flex: 1;
         }
+        
+        /* Compact navigation buttons */
+        .stButton > button {
+            padding: 0.25rem 0.5rem !important;
+            font-size: 0.875rem !important;
+            height: auto !important;
+            min-height: 1.5rem !important;
+            width: 100% !important;
+        }
+        
+        /* Center page indicator */
         .page-info {
-            padding: 0.5rem 1rem;
-            border-radius: 0.375rem;
+            padding: 0.25rem !important;
+            border-radius: 0.25rem !important;
             background-color: #2d3748;
             color: white;
             text-align: center;
-            min-width: 100px;
+            font-size: 0.875rem !important;
+            line-height: 1.5rem !important;
+            margin: 0 0.25rem !important;
         }
-        .stButton button {
-            min-width: 100px;
-            border-radius: 0.375rem;
+        
+        /* Adjust chart container for mobile */
+        .chart-container {
+            height: 60vh !important;
+            margin: 0.5rem 0 !important;
         }
-        .header-row {
-            margin-bottom: 1rem;
+        
+        /* Make header more compact */
+        h1 {
+            font-size: 1.25rem !important;
+            margin: 0.5rem 0 !important;
+            padding: 0 !important;
         }
-        .controls-row {
-            margin-bottom: 0.5rem;
+        
+        /* Remove extra padding from containers */
+        .css-ocqkz7 {
+            gap: 0.5rem !important;
+        }
+        
+        .css-1r6slb0 {
+            padding: 0.5rem !important;
         }
     </style>
 """, unsafe_allow_html=True)
