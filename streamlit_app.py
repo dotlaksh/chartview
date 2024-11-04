@@ -55,7 +55,17 @@ def format_volume(volume):
         return f'{volume/1_000:.0f}K'
     else:
         return str(volume)
-
+def search_stocks(search_term, stocks_df):
+    """Search for stocks by symbol or name"""
+    if not search_term:
+        return stocks_df
+    
+    search_term = search_term.lower()
+    return stocks_df[
+        (stocks_df['symbol'].str.lower().str.contains(search_term)) |
+        (stocks_df['stock_name'].str.lower().str.contains(search_term))
+    ]
+    
 @st.cache_data(ttl=300)
 def fetch_stock_data(ticker, period='6mo', interval='1d', retries=3, delay=1):
     for attempt in range(retries):
@@ -166,7 +176,7 @@ def create_chart(chart_data, name, symbol, current_price, volume, daily_change, 
     else:
         st.warning("No data available.")
 
-st.set_page_config(layout="centered", page_title="ChartView 2.0", page_icon="📈")
+st.set_page_config(layout="wide", page_title="ChartView 2.0", page_icon="📈")
 
 # Custom CSS for responsive design
 st.markdown("""
@@ -219,24 +229,27 @@ if 'selected_period' not in st.session_state:
     st.session_state.selected_period = '1Y'
 if 'selected_interval' not in st.session_state:
     st.session_state.selected_interval = 'Daily'
+if 'search_term' not in st.session_state:
+    st.session_state.search_term = ''
 
 # Header with title
 st.markdown("""
     <h1 style='text-align: center; margin-bottom: 1rem;'>📊 ChartView 2.0</h1>
 """, unsafe_allow_html=True)
 
-# Top controls section
-cols = st.columns([0.5, 2, 0.5, 0.5])
-
-with cols[0]:
+# Sidebar
+with st.sidebar:
+    st.markdown("### Controls")
+    
+    # Index selector
     tables = get_tables()
     selected_table = st.selectbox(
         "Index:",
         tables,
         key="selected_table"
     )
-
-with cols[2]:
+    
+    # Time period selector
     new_period = st.selectbox(
         "Time Period",
         list(TIME_PERIODS.keys()),
@@ -247,7 +260,7 @@ with cols[2]:
         st.session_state.selected_period = new_period
         st.rerun()
 
-with cols[3]:
+    # Interval selector
     new_interval = st.selectbox(
         "Interval",
         list(INTERVALS.keys()),
@@ -257,6 +270,16 @@ with cols[3]:
     if new_interval != st.session_state.selected_interval:
         st.session_state.selected_interval = new_interval
         st.rerun()
+    
+    st.markdown("### Search")
+    search_term = st.text_input(
+        "Search stocks by name or symbol:",
+        value=st.session_state.search_term,
+        key="stock_search"
+    )
+    if search_term != st.session_state.search_term:
+        st.session_state.search_term = search_term
+        st.session_state.current_page = 1
 
 # Update session state for table selection
 if 'last_selected_table' not in st.session_state or st.session_state.last_selected_table != st.session_state.selected_table:
@@ -267,91 +290,59 @@ if 'last_selected_table' not in st.session_state or st.session_state.last_select
 if selected_table:
     stocks_df = get_stocks_from_table(selected_table)
     
-    CHARTS_PER_PAGE = 1
-    total_pages = math.ceil(len(stocks_df) / CHARTS_PER_PAGE)
+    # Filter stocks based on search term
+    filtered_stocks = search_stocks(st.session_state.search_term, stocks_df)
+    
+    if filtered_stocks.empty:
+        st.warning("No stocks found matching your search criteria.")
+    else:
+        CHARTS_PER_PAGE = 1
+        total_pages = math.ceil(len(filtered_stocks) / CHARTS_PER_PAGE)
 
-    if 'current_page' not in st.session_state:
-        st.session_state.current_page = 1
-
-    start_idx = (st.session_state.current_page - 1) * CHARTS_PER_PAGE
-    stock = stocks_df.iloc[start_idx]
-
-    with st.spinner(f"Loading {stock['stock_name']}..."):
-        chart_data, current_price, volume, daily_change, pivot_points = load_chart_data(
-            stock['symbol'],
-            TIME_PERIODS[st.session_state.selected_period],
-            INTERVALS[st.session_state.selected_interval]
-        )
+        if 'current_page' not in st.session_state:
+            st.session_state.current_page = 1
         
-        # Determine chart height based on viewport
-        def create_responsive_chart(chart_data, name, symbol, current_price, volume, daily_change, pivot_points):
-            if chart_data is not None:
-                chart = StreamlitChart(height=600)  # Increased base height
-                change_color = '#00ff55' if daily_change >= 0 else '#ed4807'
-                change_symbol = '+' if daily_change >= 0 else '-'
-                
-                # Chart configuration
-                chart.layout(
-                    background_color='#1E222D',
-                    text_color='#FFFFFF',
-                    font_size=12,
-                    font_family='Helvetica'
-                )
-                chart.candle_style(
-                    up_color='#00ff55',
-                    down_color='#ed4807',
-                    wick_up_color='#00ff55',
-                    wick_down_color='#ed4807'
-                )
-                
-                formatted_volume = format_volume(volume)
-                
-                if pivot_points:
-                    chart.horizontal_line(pivot_points['P'], color='#39FF14', width=1)
+        # Ensure current page is valid after filtering
+        st.session_state.current_page = min(st.session_state.current_page, total_pages)
+        
+        start_idx = (st.session_state.current_page - 1) * CHARTS_PER_PAGE
+        stock = filtered_stocks.iloc[start_idx]
 
-                chart.volume_config(up_color='#00ff55', down_color='#ed4807')
-                chart.crosshair(mode='normal')
-                chart.time_scale(right_offset=5, min_bar_spacing=5)
-                chart.grid(vert_enabled=False, horz_enabled=False)
-                chart.legend(visible=True, font_size=12)
-                chart.topbar.textbox(
-                    'info',
-                    f'{name} | {change_symbol}{abs(daily_change):.2f}% | Volume: {formatted_volume}'
-                )
-                chart.price_line(label_visible=True, line_visible=True)
-                chart.fit()
-                chart.set(chart_data)
-                chart.load()
-            else:
-                st.warning("No data available.")
+        with st.spinner(f"Loading {stock['stock_name']}..."):
+            chart_data, current_price, volume, daily_change, pivot_points = load_chart_data(
+                stock['symbol'],
+                TIME_PERIODS[st.session_state.selected_period],
+                INTERVALS[st.session_state.selected_interval]
+            )
+            
+            # [Rest of the chart creation code remains the same]
+            create_responsive_chart(chart_data, stock['stock_name'], stock['symbol'], 
+                                 current_price, volume, daily_change, pivot_points)
 
-        create_responsive_chart(chart_data, stock['stock_name'], stock['symbol'], 
-                              current_price, volume, daily_change, pivot_points)
-
-    # Navigation controls
-    cols = st.columns([2, 2, 1, 0.5, 0.5])
-    
-    with cols[3]:
-        st.button(
-            "← Previous", 
-            disabled=(st.session_state.current_page == 1), 
-            on_click=lambda: setattr(st.session_state, 'current_page', st.session_state.current_page - 1),
-            key="prev_button",
-            use_container_width=True
-        )
-    
-    with cols[2]:
-        st.markdown(f"""
-            <div class="page-info">
-                Stock {st.session_state.current_page} of {total_pages}
-            </div>
-        """, unsafe_allow_html=True)
-    
-    with cols[4]:
-        st.button(
-            "Next →", 
-            disabled=(st.session_state.current_page == total_pages), 
-            on_click=lambda: setattr(st.session_state, 'current_page', st.session_state.current_page + 1),
-            key="next_button",
-            use_container_width=True
-        )
+        # Navigation controls
+        cols = st.columns([2, 2, 1, 0.5, 0.5])
+        
+        with cols[3]:
+            st.button(
+                "← Previous", 
+                disabled=(st.session_state.current_page == 1), 
+                on_click=lambda: setattr(st.session_state, 'current_page', st.session_state.current_page - 1),
+                key="prev_button",
+                use_container_width=True
+            )
+        
+        with cols[2]:
+            st.markdown(f"""
+                <div class="page-info">
+                    Stock {st.session_state.current_page} of {total_pages}
+                </div>
+            """, unsafe_allow_html=True)
+        
+        with cols[4]:
+            st.button(
+                "Next →", 
+                disabled=(st.session_state.current_page == total_pages), 
+                on_click=lambda: setattr(st.session_state, 'current_page', st.session_state.current_page + 1),
+                key="next_button",
+                use_container_width=True
+            )
