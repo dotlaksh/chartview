@@ -249,7 +249,7 @@ if selected_table:
         create_chart(chart_data, stock['stock_name'], stock['symbol'], current_price, volume, daily_change, pivot_points)
 
     # Navigation controls at the bottom
-   cols = st.columns([2, 1, 2, 1, 2])
+    cols = st.columns([2, 1, 2, 1, 2])
     
     # Previous button
     with cols[0]:
