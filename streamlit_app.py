@@ -61,7 +61,7 @@ def format_volume(volume):
         return str(volume)
 
 @st.cache_data(ttl=300)
-def fetch_stock_data(ticker, period='ytd', interval='1d', retries=3, delay=1):
+def fetch_stock_data(ticker, period='1y', interval='1d', retries=3, delay=1):
     for attempt in range(retries):
         try:
             stock = yf.Ticker(ticker)
