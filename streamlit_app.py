@@ -227,7 +227,7 @@ st.markdown("""
 # Top controls section
 cols = st.columns([0.5, 2, 0.5, 0.5])
 
-with col[0]:
+with cols[0]:
     tables = get_tables()
     selected_table = st.selectbox(
         "Index:",
@@ -235,7 +235,7 @@ with col[0]:
         key="selected_table"
     )
 
-with col[2]:
+with cols[2]:
     new_period = st.selectbox(
         "Time Period",
         list(TIME_PERIODS.keys()),
@@ -246,7 +246,7 @@ with col[2]:
         st.session_state.selected_period = new_period
         st.rerun()
 
-with col[3]:
+with cols[3]:
     new_interval = st.selectbox(
         "Interval",
         list(INTERVALS.keys()),
