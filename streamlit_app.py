@@ -170,31 +170,53 @@ def create_chart(chart_data, name, symbol, current_price, volume, daily_change, 
     else:
         st.warning("No data available.")
 
-# Initial page config
-st.set_page_config(layout="centered", page_title="ChartView 2.0", page_icon="📈")
+st.set_page_config(layout="wide", page_title="ChartView 2.0", page_icon="📈")
 
-# Custom CSS to reduce top padding
+# Custom CSS for responsive design
 st.markdown("""
     <style>
         .block-container {
-            padding-top: 2rem !important;
+            padding-top: 1rem !important;
+            max-width: 95% !important;
         }
         .stSelectbox {
             margin-bottom: 0.5rem;
         }
+        .chart-container {
+            margin: 1rem 0;
+        }
+        @media (min-width: 1200px) {
+            .chart-container {
+                height: 800px !important;
+            }
+        }
+        .nav-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem 0;
+            gap: 1rem;
+        }
+        .page-info {
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            background-color: #2d3748;
+            color: white;
+            text-align: center;
+            min-width: 100px;
+        }
+        .stButton button {
+            min-width: 100px;
+            border-radius: 0.375rem;
+        }
+        .header-row {
+            margin-bottom: 1rem;
+        }
+        .controls-row {
+            margin-bottom: 0.5rem;
+        }
     </style>
 """, unsafe_allow_html=True)
-
-# Sidebar
-with st.sidebar:
-    st.title("📊 ChartView 2.0")
-    
-    tables = get_tables()
-    selected_table = st.selectbox("Select a table:", tables, key="selected_table")
-
-    if 'last_selected_table' not in st.session_state or st.session_state.last_selected_table != st.session_state.selected_table:
-        st.session_state.current_page = 1
-        st.session_state.last_selected_table = st.session_state.selected_table
 
 # Initialize session state
 if 'selected_period' not in st.session_state:
@@ -202,34 +224,52 @@ if 'selected_period' not in st.session_state:
 if 'selected_interval' not in st.session_state:
     st.session_state.selected_interval = 'Daily'
 
-# Main content
+# Header with title
+st.markdown("""
+    <h1 style='text-align: center; margin-bottom: 1rem;'>📊 ChartView 2.0</h1>
+""", unsafe_allow_html=True)
+
+# Top controls section
+col1, col2, col3, col4 = st.columns([2, 1, 1, 2])
+
+with col1:
+    tables = get_tables()
+    selected_table = st.selectbox(
+        "Select Market Segment:",
+        tables,
+        key="selected_table"
+    )
+
+with col2:
+    new_period = st.selectbox(
+        "Time Period",
+        list(TIME_PERIODS.keys()),
+        index=list(TIME_PERIODS.keys()).index(st.session_state.selected_period),
+        key="period_selector"
+    )
+    if new_period != st.session_state.selected_period:
+        st.session_state.selected_period = new_period
+        st.rerun()
+
+with col3:
+    new_interval = st.selectbox(
+        "Interval",
+        list(INTERVALS.keys()),
+        index=list(INTERVALS.keys()).index(st.session_state.selected_interval),
+        key="interval_selector"
+    )
+    if new_interval != st.session_state.selected_interval:
+        st.session_state.selected_interval = new_interval
+        st.rerun()
+
+# Update session state for table selection
+if 'last_selected_table' not in st.session_state or st.session_state.last_selected_table != st.session_state.selected_table:
+    st.session_state.current_page = 1
+    st.session_state.last_selected_table = st.session_state.selected_table
+
+# Main chart section
 if selected_table:
     stocks_df = get_stocks_from_table(selected_table)
-    
-    # Top controls for timeframe and interval
-    col1, col2, col3 = st.columns([2, 2, 4])
-    
-    with col1:
-        new_period = st.selectbox(
-            "Time Period",
-            list(TIME_PERIODS.keys()),
-            index=list(TIME_PERIODS.keys()).index(st.session_state.selected_period),
-            key="period_selector"
-        )
-        if new_period != st.session_state.selected_period:
-            st.session_state.selected_period = new_period
-            st.rerun()
-    
-    with col2:
-        new_interval = st.selectbox(
-            "Interval",
-            list(INTERVALS.keys()),
-            index=list(INTERVALS.keys()).index(st.session_state.selected_interval),
-            key="interval_selector"
-        )
-        if new_interval != st.session_state.selected_interval:
-            st.session_state.selected_interval = new_interval
-            st.rerun()
     
     CHARTS_PER_PAGE = 1
     total_pages = math.ceil(len(stocks_df) / CHARTS_PER_PAGE)
@@ -240,18 +280,68 @@ if selected_table:
     start_idx = (st.session_state.current_page - 1) * CHARTS_PER_PAGE
     stock = stocks_df.iloc[start_idx]
 
+    # Display current stock info
+    st.markdown(f"""
+        <div style='text-align: center; margin-bottom: 0.5rem;'>
+            <h2>{stock['stock_name']} ({stock['symbol']})</h2>
+        </div>
+    """, unsafe_allow_html=True)
+
     with st.spinner(f"Loading {stock['stock_name']}..."):
         chart_data, current_price, volume, daily_change, pivot_points = load_chart_data(
             stock['symbol'],
             TIME_PERIODS[st.session_state.selected_period],
             INTERVALS[st.session_state.selected_interval]
         )
-        create_chart(chart_data, stock['stock_name'], stock['symbol'], current_price, volume, daily_change, pivot_points)
+        
+        # Determine chart height based on viewport
+        def create_responsive_chart(chart_data, name, symbol, current_price, volume, daily_change, pivot_points):
+            if chart_data is not None:
+                chart = StreamlitChart(height=700)  # Increased base height
+                change_color = '#00ff55' if daily_change >= 0 else '#ed4807'
+                change_symbol = '+' if daily_change >= 0 else '-'
+                
+                # Chart configuration
+                chart.layout(
+                    background_color='#1E222D',
+                    text_color='#FFFFFF',
+                    font_size=12,
+                    font_family='Helvetica'
+                )
+                chart.candle_style(
+                    up_color='#00ff55',
+                    down_color='#ed4807',
+                    wick_up_color='#00ff55',
+                    wick_down_color='#ed4807'
+                )
+                
+                formatted_volume = format_volume(volume)
+                
+                if pivot_points:
+                    chart.horizontal_line(pivot_points['P'], color='#39FF14', width=1)
 
-    # Navigation controls at the bottom
+                chart.volume_config(up_color='#00ff55', down_color='#ed4807')
+                chart.crosshair(mode='normal')
+                chart.time_scale(right_offset=5, min_bar_spacing=5)
+                chart.grid(vert_enabled=False, horz_enabled=False)
+                chart.legend(visible=True, font_size=12)
+                chart.topbar.textbox(
+                    'info',
+                    f'{name} | {change_symbol}{abs(daily_change):.2f}% | Volume: {formatted_volume}'
+                )
+                chart.price_line(label_visible=True, line_visible=True)
+                chart.fit()
+                chart.set(chart_data)
+                chart.load()
+            else:
+                st.warning("No data available.")
+
+        create_responsive_chart(chart_data, stock['stock_name'], stock['symbol'], 
+                              current_price, volume, daily_change, pivot_points)
+
+    # Navigation controls
     cols = st.columns([2, 1, 2, 1, 2])
     
-    # Previous button
     with cols[0]:
         st.button(
             "← Previous", 
@@ -261,21 +351,13 @@ if selected_table:
             use_container_width=True
         )
     
-    # Spacer
-    cols[1].write("")
-    
-    # Page information
     with cols[2]:
         st.markdown(f"""
             <div class="page-info">
-                Page {st.session_state.current_page} of {total_pages}
+                Stock {st.session_state.current_page} of {total_pages}
             </div>
         """, unsafe_allow_html=True)
     
-    # Spacer
-    cols[3].write("")
-    
-    # Next button
     with cols[4]:
         st.button(
             "Next →", 
@@ -285,7 +367,7 @@ if selected_table:
             use_container_width=True
         )
 
-    # Display current stock name and navigation shortcut info
+    # Keyboard navigation hint
     st.markdown("""
         <div style='text-align: center; color: #666; font-size: 0.8rem; margin-top: 0.5rem;'>
             Use ← → arrow keys for quick navigation
