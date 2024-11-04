@@ -190,6 +190,22 @@ def create_chart(chart_data, name, symbol, current_price, volume, daily_change, 
     else:
         st.warning("No data available.")
 
+def get_suggestions(search_term, stocks_df):
+    """Get stock symbol and name suggestions based on search term"""
+    if not search_term:
+        return []
+    
+    search_term = search_term.lower()
+    suggestions = stocks_df[
+        (stocks_df['symbol'].str.lower().str.contains(search_term)) |
+        (stocks_df['stock_name'].str.lower().str.contains(search_term))
+    ].head(5)
+    
+    return [
+        {'label': f"{row['symbol']} - {row['stock_name']}", 'value': row['symbol']}
+        for _, row in suggestions.iterrows()
+    ]
+
 st.set_page_config(layout="wide", page_title="ChartView 2.0", page_icon="📈")
 
 # Custom CSS for responsive design
@@ -291,6 +307,10 @@ with st.sidebar:
         value=st.session_state.search_term,
         key="stock_search"
     )
+    suggestions = get_suggestions(search_term, get_stocks_from_table(selected_table))
+    if suggestions:
+        selected_stock = st.selectbox("Select a stock:", suggestions, format_func=lambda x: x['label'])
+        st.session_state.search_term = selected_stock['value']
     if search_term != st.session_state.search_term:
         st.session_state.search_term = search_term
         st.session_state.current_page = 1
