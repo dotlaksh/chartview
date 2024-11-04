@@ -62,9 +62,6 @@ def format_volume(volume):
 
 @st.cache_data(ttl=300)
 def fetch_stock_data(ticker, period='ytd', interval='1d', retries=3, delay=1):
-    """
-    Fetch stock data with retry mechanism and proper error handling
-    """
     for attempt in range(retries):
         try:
             stock = yf.Ticker(ticker)
@@ -76,11 +73,11 @@ def fetch_stock_data(ticker, period='ytd', interval='1d', retries=3, delay=1):
             return df
             
         except (RequestException, ValueError, Exception) as e:
-            if attempt == retries - 1:  # Last attempt
+            if attempt == retries - 1:
                 st.error(f"Failed to fetch data for {ticker} after {retries} attempts. Error: {str(e)}")
                 return None
-            time.sleep(delay)  # Wait before retrying
-            delay *= 2  # Exponential backoff
+            time.sleep(delay)
+            delay *= 2
 
 def load_chart_data(symbol, period, interval):
     ticker = f"{symbol}.NS"
@@ -147,7 +144,7 @@ def load_chart_data(symbol, period, interval):
 
 def create_chart(chart_data, name, symbol, current_price, volume, daily_change, pivot_points):
     if chart_data is not None:
-        chart = StreamlitChart(height=525)
+        chart = StreamlitChart(height=500)  # Reduced height
         change_color = '#00ff55' if daily_change >= 0 else '#ed4807'
         change_symbol = '+' if daily_change >= 0 else '-'
         chart.layout(background_color='#1E222D', text_color='#FFFFFF', font_size=12, font_family='Helvetica')
@@ -166,7 +163,7 @@ def create_chart(chart_data, name, symbol, current_price, volume, daily_change, 
             'info',
             f'{name} |{change_symbol}{abs(daily_change):.2f}%'
         )
-        chart.price_line(label_visible=True,line_visible=True)
+        chart.price_line(label_visible=True, line_visible=True)
         chart.fit()
         chart.set(chart_data)
         chart.load()
@@ -176,6 +173,17 @@ def create_chart(chart_data, name, symbol, current_price, volume, daily_change, 
 # Initial page config
 st.set_page_config(layout="centered", page_title="ChartView 2.0", page_icon="📈")
 
+# Custom CSS to reduce top padding
+st.markdown("""
+    <style>
+        .block-container {
+            padding-top: 2rem !important;
+        }
+        .stSelectbox {
+            margin-bottom: 0.5rem;
+        }
+    </style>
+""", unsafe_allow_html=True)
 
 # Sidebar
 with st.sidebar:
@@ -188,7 +196,7 @@ with st.sidebar:
         st.session_state.current_page = 1
         st.session_state.last_selected_table = st.session_state.selected_table
 
-# Initialize session state for period and interval
+# Initialize session state
 if 'selected_period' not in st.session_state:
     st.session_state.selected_period = 'YTD'
 if 'selected_interval' not in st.session_state:
@@ -197,6 +205,31 @@ if 'selected_interval' not in st.session_state:
 # Main content
 if selected_table:
     stocks_df = get_stocks_from_table(selected_table)
+    
+    # Top controls for timeframe and interval
+    col1, col2, col3 = st.columns([2, 2, 4])
+    
+    with col1:
+        new_period = st.selectbox(
+            "Time Period",
+            list(TIME_PERIODS.keys()),
+            index=list(TIME_PERIODS.keys()).index(st.session_state.selected_period),
+            key="period_selector"
+        )
+        if new_period != st.session_state.selected_period:
+            st.session_state.selected_period = new_period
+            st.rerun()
+    
+    with col2:
+        new_interval = st.selectbox(
+            "Interval",
+            list(INTERVALS.keys()),
+            index=list(INTERVALS.keys()).index(st.session_state.selected_interval),
+            key="interval_selector"
+        )
+        if new_interval != st.session_state.selected_interval:
+            st.session_state.selected_interval = new_interval
+            st.rerun()
     
     CHARTS_PER_PAGE = 1
     total_pages = math.ceil(len(stocks_df) / CHARTS_PER_PAGE)
@@ -208,7 +241,6 @@ if selected_table:
     stock = stocks_df.iloc[start_idx]
 
     with st.spinner(f"Loading {stock['stock_name']}..."):
-        # Use selected period and interval from session state
         chart_data, current_price, volume, daily_change, pivot_points = load_chart_data(
             stock['symbol'],
             TIME_PERIODS[st.session_state.selected_period],
@@ -216,66 +248,46 @@ if selected_table:
         )
         create_chart(chart_data, stock['stock_name'], stock['symbol'], current_price, volume, daily_change, pivot_points)
 
-
-# Create the bottom navbar
-bottom_navbar = st.container()
-with bottom_navbar:
-    cols = st.columns([1, 1, 1, 1, 2, 2])
+    # Navigation controls at the bottom
+   cols = st.columns([2, 1, 2, 1, 2])
     
     # Previous button
     with cols[0]:
         st.button(
-            "← ", 
+            "← Previous", 
             disabled=(st.session_state.current_page == 1), 
             on_click=lambda: setattr(st.session_state, 'current_page', st.session_state.current_page - 1),
             key="prev_button",
             use_container_width=True
         )
     
-    # Page indicator
-    with cols[1]:
+    # Spacer
+    cols[1].write("")
+    
+    # Page information
+    with cols[2]:
         st.markdown(f"""
-            <div style='text-align: center; padding: 5px 0;'>
+            <div class="page-info">
                 Page {st.session_state.current_page} of {total_pages}
             </div>
         """, unsafe_allow_html=True)
     
+    # Spacer
+    cols[3].write("")
+    
     # Next button
-    with cols[2]:
+    with cols[4]:
         st.button(
-            "→", 
+            "Next →", 
             disabled=(st.session_state.current_page == total_pages), 
             on_click=lambda: setattr(st.session_state, 'current_page', st.session_state.current_page + 1),
             key="next_button",
             use_container_width=True
         )
-    
-    # Spacer
-    with cols[3]:
-        st.empty()
-    
-    # Time period selector
-    with cols[4]:
-        new_period = st.selectbox(
-            "Time Period:",
-            list(TIME_PERIODS.keys()),
-            index=list(TIME_PERIODS.keys()).index(st.session_state.selected_period),
-            key="period_selector",
-            label_visibility="collapsed"
-        )
-        if new_period != st.session_state.selected_period:
-            st.session_state.selected_period = new_period
-            st.rerun()
-    
-    # Interval selector
-    with cols[5]:
-        new_interval = st.selectbox(
-            "Interval:",
-            list(INTERVALS.keys()),
-            index=list(INTERVALS.keys()).index(st.session_state.selected_interval),
-            key="interval_selector",
-            label_visibility="collapsed"
-        )
-        if new_interval != st.session_state.selected_interval:
-            st.session_state.selected_interval = new_interval
-            st.rerun()
+
+    # Display current stock name and navigation shortcut info
+    st.markdown("""
+        <div style='text-align: center; color: #666; font-size: 0.8rem; margin-top: 0.5rem;'>
+            Use ← → arrow keys for quick navigation
+        </div>
+    """, unsafe_allow_html=True)
