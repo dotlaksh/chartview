@@ -151,7 +151,7 @@ def load_chart_data(symbol, period, interval):
 
 def create_chart(chart_data, name, symbol, current_price, volume, daily_change, pivot_points):
     if chart_data is not None:
-        chart = StreamlitChart(height=600)  # Increased base height
+        chart = StreamlitChart(height=600)
         change_color = '#00ff55' if daily_change >= 0 else '#ed4807'
         change_symbol = '+' if daily_change >= 0 else '-'
         
@@ -189,22 +189,6 @@ def create_chart(chart_data, name, symbol, current_price, volume, daily_change, 
         chart.load()
     else:
         st.warning("No data available.")
-
-def get_suggestions(search_term, stocks_df):
-    """Get stock symbol and name suggestions based on search term"""
-    if not search_term:
-        return []
-    
-    search_term = search_term.lower()
-    suggestions = stocks_df[
-        (stocks_df['symbol'].str.lower().str.contains(search_term)) |
-        (stocks_df['stock_name'].str.lower().str.contains(search_term))
-    ].head(5)
-    
-    return [
-        {'label': f"{row['symbol']} - {row['stock_name']}", 'value': row['symbol']}
-        for _, row in suggestions.iterrows()
-    ]
 
 st.set_page_config(layout="wide", page_title="ChartView 2.0", page_icon="📈")
 
@@ -302,15 +286,22 @@ with st.sidebar:
         st.rerun()
     
     st.markdown("### Search")
-    search_term = st.text_input(
-        "Search stocks by name or symbol:",
-        value=st.session_state.search_term,
-        key="stock_search"
+    stock_options = get_stocks_from_table(selected_table)
+    stock_symbols = stock_options['symbol'].tolist()
+    stock_names = stock_options['stock_name'].tolist()
+    all_options = stock_symbols + stock_names
+    
+    search_term = st.experimental_data_editor(
+        st.session_state.search_term,
+        num_rows=1,
+        num_cols=1,
+        key="stock_search",
+        height=50,
+        use_container_width=True,
+        columns=["Search"],
+        on_change=lambda: setattr(st.session_state, 'search_term', st.experimental_data_editor.last_widget_data)
     )
-    suggestions = get_suggestions(search_term, get_stocks_from_table(selected_table))
-    if suggestions:
-        selected_stock = st.selectbox("Select a stock:", suggestions, format_func=lambda x: x['label'])
-        st.session_state.search_term = selected_stock['value']
+    
     if search_term != st.session_state.search_term:
         st.session_state.search_term = search_term
         st.session_state.current_page = 1
