@@ -173,7 +173,7 @@ st.markdown("""
     <style>
         .block-container {
             padding-top: 1rem !important;
-            max-width: 95% !important;
+            max-width: 90% !important;
         }
         .stSelectbox {
             margin-bottom: 0.5rem;
@@ -231,7 +231,7 @@ col1, col2, col3, col4 = st.columns([2, 1, 1, 2])
 with col1:
     tables = get_tables()
     selected_table = st.selectbox(
-        "Select Market Segment:",
+        "Index:",
         tables,
         key="selected_table"
     )
@@ -275,13 +275,6 @@ if selected_table:
 
     start_idx = (st.session_state.current_page - 1) * CHARTS_PER_PAGE
     stock = stocks_df.iloc[start_idx]
-
-    # Display current stock info
-    st.markdown(f"""
-        <div style='text-align: center; margin-bottom: 0.5rem;'>
-            <h2>{stock['stock_name']} ({stock['symbol']})</h2>
-        </div>
-    """, unsafe_allow_html=True)
 
     with st.spinner(f"Loading {stock['stock_name']}..."):
         chart_data, current_price, volume, daily_change, pivot_points = load_chart_data(
