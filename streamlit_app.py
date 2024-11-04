@@ -329,9 +329,9 @@ if selected_table:
                               current_price, volume, daily_change, pivot_points)
 
     # Navigation controls
-    cols = st.columns([0.5, 1, 2, 1, 0.5])
+    cols = st.columns([2, 2, 2, 0.5, 0.5])
     
-    with cols[0]:
+    with cols[2]:
         st.button(
             "← Previous", 
             disabled=(st.session_state.current_page == 1), 
@@ -340,7 +340,7 @@ if selected_table:
             use_container_width=True
         )
     
-    with cols[2]:
+    with cols[0]:
         st.markdown(f"""
             <div class="page-info">
                 Stock {st.session_state.current_page} of {total_pages}
