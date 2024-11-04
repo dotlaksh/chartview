@@ -13,7 +13,12 @@ from streamlit_extras.row import row
 
 # Time period and interval mappings
 TIME_PERIODS = {
+    '1M': '1mo',
+    '3M': '3mo',
+    '6M': '6mo',
+    'YTD': 'ytd',
     '1Y': '1y',
+    '2Y': '2y',
     '5Y': '5y',
     'MAX': 'max'
 }
@@ -167,191 +172,220 @@ def create_chart(chart_data, name, symbol, current_price, volume, daily_change, 
 
 st.set_page_config(layout="wide", page_title="ChartView 2.0", page_icon="📈")
 
-# Custom CSS for responsive design
 st.markdown("""
     <style>
+        /* Global theme */
+        .stApp {
+            background-color: #1a202c;
+        }
+        
+        /* Container modifications */
         .block-container {
             padding-top: 1rem !important;
-            max-width: 90% !important;
+            max-width: 95% !important;
         }
-        .stSelectbox {
-            margin-bottom: 0.5rem;
-        }
-        .chart-container {
-            margin: 1rem 0;
-        }
-        @media (min-width: 1200px) {
-            .chart-container {
-                height: 800px !important;
-            }
-        }
-        .nav-container {
+        
+        /* Header styling */
+        .header-container {
             display: flex;
-            justify-content: center;
+            justify-content: space-between;
             align-items: center;
-            padding: 1rem 0;
-            gap: 1rem;
-        }
-        .page-info {
-            padding: 0.5rem 1rem;
-            border-radius: 0.375rem;
-            background-color: #2d3748;
-            color: white;
-            text-align: center;
-            min-width: 100px;
-        }
-        .stButton button {
-            min-width: 100px;
-            border-radius: 0.375rem;
-        }
-        .header-row {
             margin-bottom: 1rem;
         }
-        .controls-row {
-            margin-bottom: 0.5rem;
+        
+        /* Selectbox styling */
+        .stSelectbox > div > div {
+            background-color: transparent;
+            border: 1px solid #4a5568;
+            color: white !important;
         }
+        
+        /* Search box styling */
+        .stTextInput > div > div > input {
+            background-color: transparent;
+            border: 1px solid #4a5568;
+            color: white;
+            padding-left: 2.5rem;
+        }
+        
+        /* Time period buttons */
+        .stButton > button {
+            background-color: transparent;
+            color: #a0aec0;
+            border: none;
+            padding: 0.5rem 1rem;
+            min-width: 3rem;
+        }
+        
+        .stButton > button:hover {
+            color: white;
+            background-color: #2d3748;
+        }
+        
+        .selected-button {
+            background-color: #3182ce !important;
+            color: white !important;
+        }
+        
+        /* Stock info styling */
+        .stock-info {
+            margin: 1rem 0;
+            padding: 0.5rem 0;
+        }
+        
+        .stock-name {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: white;
+        }
+        
+        .stock-price {
+            font-size: 1.2rem;
+            color: white;
+            margin-left: 1rem;
+        }
+        
+        .stock-change-positive {
+            color: #34d399;
+        }
+        
+        .stock-change-negative {
+            color: #ef4444;
+        }
+        
+        /* Navigation styling */
+        .nav-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0;
+        }
+        
+        .nav-button {
+            background-color: #2d3748;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+        }
+        
+        .page-info {
+            background-color: #2d3748;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+        }
+        
+        /* Hide Streamlit defaults */
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
+        header {visibility: hidden;}
     </style>
 """, unsafe_allow_html=True)
 
-# Initialize session state
-if 'selected_period' not in st.session_state:
-    st.session_state.selected_period = '1Y'
-if 'selected_interval' not in st.session_state:
-    st.session_state.selected_interval = 'Daily'
-
-# Header with title
-st.markdown("""
-    <h1 style='text-align: center; margin-bottom: 1rem;'>📊 ChartView 2.0</h1>
-""", unsafe_allow_html=True)
-
-# Top controls section
-col1, col2, col3, col4 = st.columns([2, 1, 1, 2])
-
+# Header section
+col1, col2 = st.columns([2, 2])
 with col1:
     tables = get_tables()
     selected_table = st.selectbox(
-        "Index:",
+        "",
         tables,
         key="selected_table"
     )
 
 with col2:
-    new_period = st.selectbox(
-        "Time Period",
-        list(TIME_PERIODS.keys()),
-        index=list(TIME_PERIODS.keys()).index(st.session_state.selected_period),
-        key="period_selector"
-    )
-    if new_period != st.session_state.selected_period:
-        st.session_state.selected_period = new_period
-        st.rerun()
+    search = st.text_input("", placeholder="🔍 Search stocks...", key="search")
 
-with col3:
-    new_interval = st.selectbox(
-        "Interval",
-        list(INTERVALS.keys()),
-        index=list(INTERVALS.keys()).index(st.session_state.selected_interval),
-        key="interval_selector"
-    )
-    if new_interval != st.session_state.selected_interval:
-        st.session_state.selected_interval = new_interval
-        st.rerun()
-
-# Update session state for table selection
-if 'last_selected_table' not in st.session_state or st.session_state.last_selected_table != st.session_state.selected_table:
-    st.session_state.current_page = 1
-    st.session_state.last_selected_table = st.session_state.selected_table
-
-# Main chart section
+# Stock info section
 if selected_table:
     stocks_df = get_stocks_from_table(selected_table)
+    stock = stocks_df.iloc[(st.session_state.current_page - 1) * CHARTS_PER_PAGE]
     
-    CHARTS_PER_PAGE = 1
-    total_pages = math.ceil(len(stocks_df) / CHARTS_PER_PAGE)
-
-    if 'current_page' not in st.session_state:
-        st.session_state.current_page = 1
-
-    start_idx = (st.session_state.current_page - 1) * CHARTS_PER_PAGE
-    stock = stocks_df.iloc[start_idx]
-
-    with st.spinner(f"Loading {stock['stock_name']}..."):
-        chart_data, current_price, volume, daily_change, pivot_points = load_chart_data(
-            stock['symbol'],
-            TIME_PERIODS[st.session_state.selected_period],
-            INTERVALS[st.session_state.selected_interval]
+    chart_data, current_price, volume, daily_change, pivot_points = load_chart_data(
+        stock['symbol'],
+        TIME_PERIODS[st.session_state.selected_period],
+        INTERVALS[st.session_state.selected_interval]
+    )
+    
+    # Stock info display
+    st.markdown(f"""
+        <div class="stock-info">
+            <span class="stock-name">{stock['symbol']}</span>
+            <span class="stock-price">₹{current_price:.2f}</span>
+            <span class="{'stock-change-positive' if daily_change >= 0 else 'stock-change-negative'}">
+                {'+' if daily_change >= 0 else ''}{daily_change:.2f}%
+            </span>
+            <div style="color: #718096; font-size: 0.875rem; margin-top: 0.25rem">
+                {stock['stock_name']}
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    # Time period and interval selectors
+    col1, col2 = st.columns([3, 1])
+    
+    with col1:
+        period_cols = st.columns(len(TIME_PERIODS))
+        for i, (period, _) in enumerate(TIME_PERIODS.items()):
+            is_selected = st.session_state.selected_period == period
+            if period_cols[i].button(
+                period,
+                key=f"period_{period}",
+                use_container_width=True,
+                type="primary" if is_selected else "secondary"
+            ):
+                st.session_state.selected_period = period
+                st.rerun()
+    
+    with col2:
+        interval_cols = st.columns(len(INTERVALS))
+        for i, (interval, _) in enumerate(INTERVALS.items()):
+            is_selected = st.session_state.selected_interval == interval
+            if interval_cols[i].button(
+                interval[0],  # Just first letter (D/W/M)
+                key=f"interval_{interval}",
+                use_container_width=True,
+                type="primary" if is_selected else "secondary"
+            ):
+                st.session_state.selected_interval = interval
+                st.rerun()
+    
+    # Chart
+    if chart_data is not None:
+        chart = StreamlitChart(height=600)
+        chart.layout(
+            background_color='#1a202c',
+            text_color='#FFFFFF',
+            font_size=12,
+            font_family='Helvetica'
+        )
+        chart.candle_style(
+            up_color='#34d399',  # Green
+            down_color='#ef4444',  # Red
+            wick_up_color='#34d399',
+            wick_down_color='#ef4444'
         )
         
-        # Determine chart height based on viewport
-        def create_responsive_chart(chart_data, name, symbol, current_price, volume, daily_change, pivot_points):
-            if chart_data is not None:
-                chart = StreamlitChart(height=600)  # Increased base height
-                change_color = '#00ff55' if daily_change >= 0 else '#ed4807'
-                change_symbol = '+' if daily_change >= 0 else '-'
-                
-                # Chart configuration
-                chart.layout(
-                    background_color='#1E222D',
-                    text_color='#FFFFFF',
-                    font_size=12,
-                    font_family='Helvetica'
-                )
-                chart.candle_style(
-                    up_color='#00ff55',
-                    down_color='#ed4807',
-                    wick_up_color='#00ff55',
-                    wick_down_color='#ed4807'
-                )
-                
-                formatted_volume = format_volume(volume)
-                
-                if pivot_points:
-                    chart.horizontal_line(pivot_points['P'], color='#39FF14', width=1)
-
-                chart.volume_config(up_color='#00ff55', down_color='#ed4807')
-                chart.crosshair(mode='normal')
-                chart.time_scale(right_offset=5, min_bar_spacing=5)
-                chart.grid(vert_enabled=False, horz_enabled=False)
-                chart.legend(visible=True, font_size=12)
-                chart.topbar.textbox(
-                    'info',
-                    f'{name} | {change_symbol}{abs(daily_change):.2f}% | Volume: {formatted_volume}'
-                )
-                chart.price_line(label_visible=True, line_visible=True)
-                chart.fit()
-                chart.set(chart_data)
-                chart.load()
-            else:
-                st.warning("No data available.")
-
-        create_responsive_chart(chart_data, stock['stock_name'], stock['symbol'], 
-                              current_price, volume, daily_change, pivot_points)
-
-    # Navigation controls
-    cols = st.columns([2, 1, 2, 1, 2])
-    
-    with cols[0]:
-        st.button(
-            "← Previous", 
-            disabled=(st.session_state.current_page == 1), 
-            on_click=lambda: setattr(st.session_state, 'current_page', st.session_state.current_page - 1),
-            key="prev_button",
-            use_container_width=True
+        if pivot_points:
+            chart.horizontal_line(pivot_points['P'], color='#39FF14', width=1)
+            
+        chart.volume_config(
+            up_color='#34d399',
+            down_color='#ef4444'
         )
+        chart.crosshair(mode='normal')
+        chart.time_scale(right_offset=5, min_bar_spacing=5)
+        chart.grid(vert_enabled=False, horz_enabled=False)
+        chart.legend(visible=True, font_size=12)
+        chart.price_line(label_visible=True, line_visible=True)
+        chart.set(chart_data)
+        chart.load()
     
-    with cols[2]:
-        st.markdown(f"""
-            <div class="page-info">
-                Stock {st.session_state.current_page} of {total_pages}
-            </div>
-        """, unsafe_allow_html=True)
-    
-    with cols[4]:
-        st.button(
-            "Next →", 
-            disabled=(st.session_state.current_page == total_pages), 
-            on_click=lambda: setattr(st.session_state, 'current_page', st.session_state.current_page + 1),
-            key="next_button",
-            use_container_width=True
-        )
-
+    # Navigation
+    st.markdown("""
+        <div class="nav-container">
+            <button class="nav-button">← Previous</button>
+            <div class="page-info">1 / 50</div>
+            <button class="nav-button">Next →</button>
+        </div>
+    """, unsafe_allow_html=True)
