@@ -172,7 +172,7 @@ st.markdown("""
     <style>
         .block-container {
             padding-top: 1rem !important;
-            max-width: 90% !important;
+            max-width: 70% !important;
         }
         .stSelectbox {
             margin-bottom: 0.5rem;
