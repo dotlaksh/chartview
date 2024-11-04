@@ -249,48 +249,47 @@ if 'selected_period' not in st.session_state:
 if 'selected_interval' not in st.session_state:
     st.session_state.selected_interval = 'Daily'
 
-# Header with title
-st.markdown("""
-    <h1 style='text-align: center; margin-bottom: 1rem;'>📊 ChartView 2.0</h1>
-""", unsafe_allow_html=True)
+# Compact header
+st.markdown("<h1 style='text-align: center;'>📊 ChartView Mobile</h1>", unsafe_allow_html=True)
 
-# Top controls section
-col1, col2, col3, col4 = st.columns([1, 1, 1, 2])
+# Create a single row for all controls using custom columns
+col1, col2, col3 = st.columns([1, 1, 1])
 
 with col1:
     tables = get_tables()
     selected_table = st.selectbox(
-        "Index:",
+        "",  # Remove label to save space
         tables,
-        key="selected_table"
+        key="selected_table",
+        help="Select Index"  # Show help text instead of label
     )
 
 with col2:
     new_period = st.selectbox(
-        "Time Period",
+        "",
         list(TIME_PERIODS.keys()),
-        index=list(TIME_PERIODS.keys()).index(st.session_state.selected_period),
-        key="period_selector"
+        index=list(TIME_PERIODS.keys()).index(st.session_state.get('selected_period', '1Y')),
+        key="period_selector",
+        help="Time Period"
     )
-    if new_period != st.session_state.selected_period:
-        st.session_state.selected_period = new_period
-        st.rerun()
 
 with col3:
     new_interval = st.selectbox(
-        "Interval",
+        "",
         list(INTERVALS.keys()),
-        index=list(INTERVALS.keys()).index(st.session_state.selected_interval),
-        key="interval_selector"
+        index=list(INTERVALS.keys()).index(st.session_state.get('selected_interval', 'Daily')),
+        key="interval_selector",
+        help="Interval"
     )
-    if new_interval != st.session_state.selected_interval:
-        st.session_state.selected_interval = new_interval
-        st.rerun()
 
-# Update session state for table selection
-if 'last_selected_table' not in st.session_state or st.session_state.last_selected_table != st.session_state.selected_table:
-    st.session_state.current_page = 1
-    st.session_state.last_selected_table = st.session_state.selected_table
+# Update session states
+if new_period != st.session_state.get('selected_period'):
+    st.session_state.selected_period = new_period
+    st.rerun()
+
+if new_interval != st.session_state.get('selected_interval'):
+    st.session_state.selected_interval = new_interval
+    st.rerun()
 
 # Main chart section
 if selected_table:
@@ -305,6 +304,7 @@ if selected_table:
     start_idx = (st.session_state.current_page - 1) * CHARTS_PER_PAGE
     stock = stocks_df.iloc[start_idx]
 
+    # Load and display chart
     with st.spinner(f"Loading {stock['stock_name']}..."):
         chart_data, current_price, volume, daily_change, pivot_points = load_chart_data(
             stock['symbol'],
@@ -312,75 +312,66 @@ if selected_table:
             INTERVALS[st.session_state.selected_interval]
         )
         
-        # Determine chart height based on viewport
-        def create_responsive_chart(chart_data, name, symbol, current_price, volume, daily_change, pivot_points):
-            if chart_data is not None:
-                chart = StreamlitChart(height=600)  # Increased base height
-                change_color = '#00ff55' if daily_change >= 0 else '#ed4807'
-                change_symbol = '+' if daily_change >= 0 else '-'
-                
-                # Chart configuration
-                chart.layout(
-                    background_color='#1E222D',
-                    text_color='#FFFFFF',
-                    font_size=12,
-                    font_family='Helvetica'
-                )
-                chart.candle_style(
-                    up_color='#00ff55',
-                    down_color='#ed4807',
-                    wick_up_color='#00ff55',
-                    wick_down_color='#ed4807'
-                )
-                
-                formatted_volume = format_volume(volume)
-                
-                if pivot_points:
-                    chart.horizontal_line(pivot_points['P'], color='#39FF14', width=1)
+        if chart_data is not None:
+            chart = StreamlitChart(height=400)  # Reduced height for mobile
+            change_color = '#00ff55' if daily_change >= 0 else '#ed4807'
+            change_symbol = '+' if daily_change >= 0 else '-'
+            
+            # Chart configuration
+            chart.layout(
+                background_color='#1E222D',
+                text_color='#FFFFFF',
+                font_size=12,
+                font_family='Helvetica'
+            )
+            chart.candle_style(
+                up_color='#00ff55',
+                down_color='#ed4807',
+                wick_up_color='#00ff55',
+                wick_down_color='#ed4807'
+            )
+            
+            formatted_volume = format_volume(volume)
+            
+            if pivot_points:
+                chart.horizontal_line(pivot_points['P'], color='#39FF14', width=1)
 
-                chart.volume_config(up_color='#00ff55', down_color='#ed4807')
-                chart.crosshair(mode='normal')
-                chart.time_scale(right_offset=5, min_bar_spacing=5)
-                chart.grid(vert_enabled=False, horz_enabled=False)
-                chart.legend(visible=True, font_size=12)
-                chart.topbar.textbox(
-                    'info',
-                    f'{name} | {change_symbol}{abs(daily_change):.2f}% | Volume: {formatted_volume}'
-                )
-                chart.price_line(label_visible=True, line_visible=True)
-                chart.fit()
-                chart.set(chart_data)
-                chart.load()
-            else:
-                st.warning("No data available.")
+            chart.volume_config(up_color='#00ff55', down_color='#ed4807')
+            chart.crosshair(mode='normal')
+            chart.time_scale(right_offset=5, min_bar_spacing=5)
+            chart.grid(vert_enabled=False, horz_enabled=False)
+            chart.legend(visible=True, font_size=12)
+            chart.topbar.textbox(
+                'info',
+                f'{stock["stock_name"]} | {change_symbol}{abs(daily_change):.2f}%'
+            )
+            chart.price_line(label_visible=True, line_visible=True)
+            chart.fit()
+            chart.set(chart_data)
+            chart.load()
 
-        create_responsive_chart(chart_data, stock['stock_name'], stock['symbol'], 
-                              current_price, volume, daily_change, pivot_points)
-
-    # Navigation controls
-    cols = st.columns([2, 1, 2, 1, 2])
+    # Compact navigation controls in a single row
+    nav_col1, nav_col2, nav_col3 = st.columns([1, 1, 1])
     
-    with cols[0]:
+    with nav_col1:
         st.button(
-            "← Previous", 
-            disabled=(st.session_state.current_page == 1), 
+            "←", 
+            disabled=(st.session_state.current_page == 1),
             on_click=lambda: setattr(st.session_state, 'current_page', st.session_state.current_page - 1),
-            key="prev_button",
-            use_container_width=True
+            key="prev_button"
         )
     
-    with cols[2]:
+    with nav_col2:
         st.markdown(f"""
             <div class="page-info">
-                Stock {st.session_state.current_page} of {total_pages}
+                {st.session_state.current_page}/{total_pages}
             </div>
         """, unsafe_allow_html=True)
     
-    with cols[4]:
+    with nav_col3:
         st.button(
-            "Next →", 
-            disabled=(st.session_state.current_page == total_pages), 
+            "→", 
+            disabled=(st.session_state.current_page == total_pages),
             on_click=lambda: setattr(st.session_state, 'current_page', st.session_state.current_page + 1),
-            key="next_button",
-            use_container_width=True
+            key="next_button"
         )
