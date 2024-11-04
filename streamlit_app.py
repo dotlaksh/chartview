@@ -13,7 +13,7 @@ from streamlit_extras.row import row
 
 # Time period and interval mappings
 TIME_PERIODS = {
-    '6M' :'6mo'
+    '6M' :'6mo',
     '1Y': '1y',
     '5Y': '5y',
     'MAX': 'max'
