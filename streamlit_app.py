@@ -225,7 +225,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Top controls section
-col1, col2, col3, col4 = st.columns([1, 0.1, 0.1, 2])
+col1, col2, col3, col4 = st.columns([1, 0.5, 0.5, 2])
 
 with col1:
     tables = get_tables()
