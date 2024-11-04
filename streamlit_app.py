@@ -331,7 +331,7 @@ if selected_table:
     # Navigation controls
     cols = st.columns([2, 2, 2, 0.5, 0.5])
     
-    with cols[2]:
+    with cols[3]:
         st.button(
             "← Previous", 
             disabled=(st.session_state.current_page == 1), 
