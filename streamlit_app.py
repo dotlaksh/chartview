@@ -293,7 +293,6 @@ with st.sidebar:
     )
     if search_term != st.session_state.search_term:
         st.session_state.search_term = search_term
-        st.session_state.current_page = 1
 
 # Update session state for table selection
 if 'last_selected_table' not in st.session_state or st.session_state.last_selected_table != st.session_state.selected_table:
