@@ -285,7 +285,7 @@ if selected_table:
         # Determine chart height based on viewport
         def create_responsive_chart(chart_data, name, symbol, current_price, volume, daily_change, pivot_points):
             if chart_data is not None:
-                chart = StreamlitChart(height=700)  # Increased base height
+                chart = StreamlitChart(height=600)  # Increased base height
                 change_color = '#00ff55' if daily_change >= 0 else '#ed4807'
                 change_symbol = '+' if daily_change >= 0 else '-'
                 
