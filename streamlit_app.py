@@ -183,7 +183,7 @@ st.markdown("""
         }
         @media (min-width: 1200px) {
             .chart-container {
-                height: 800px !important;
+                height: 600px !important;
             }
         }
         .nav-container {
