@@ -284,10 +284,9 @@ if selected_table:
             
             # Display stock name, current price, and today's change
             st.markdown(f"""
-                <h3 style="text-align:center;">{stock['stock_name']} ({stock['symbol']})</h3>
-                <div style="text-align:center; font-size:18px;">
-                    <b>Current Price:</b> ${current_price:.2f} <br>
-                    <b>Change:</b> <span style="color:{change_color};">{change_symbol}{abs(daily_change):.2f}%</span>
+                <h4 style="text-align:center;">{stock['stock_name']} ({stock['symbol']})</h4>
+                <div style="text-align:center; font-size:14px;">
+                    ${current_price:.2f} | <span style="color:{change_color};">{change_symbol}{abs(daily_change):.2f}%</span>
                 </div>
             """, unsafe_allow_html=True)
 
