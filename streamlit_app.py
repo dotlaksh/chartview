@@ -11,13 +11,7 @@ import requests
 from requests.exceptions import RequestException
 from streamlit_extras.row import row
 
-st.markdown("""
-    <style>
-        .block-container {
-            padding-top: 1rem !important;
-        }
-    </style>
-    """, unsafe_allow_html=True)
+
 # Time period and interval mappings
 TIME_PERIODS = {
     '3M' :'3mo',
@@ -194,7 +188,13 @@ def create_chart(chart_data, name, symbol, current_price, volume, daily_change, 
         st.warning("No data available.")
 
 st.set_page_config(layout="centered", page_title="ChartView 2.0", page_icon="📈")
-
+st.markdown("""
+    <style>
+        .block-container {
+            padding-top: 1rem !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
 
 
 # Initialize session state
