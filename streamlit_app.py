@@ -192,38 +192,7 @@ def create_chart(chart_data, name, symbol, current_price, volume, daily_change, 
 
 st.set_page_config(layout="wide", page_title="ChartView 2.0", page_icon="📈")
 
-# Custom CSS for responsive design
-st.markdown("""
-    <style>            
-     @media (min-width: 1200px) {
-        .chart-container {
-            height: 700px !important;
-        }
-    }
-        .nav-container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 1rem 0;
-            gap: 1rem;
-        }
-        .page-info {
-            padding: 0.5rem 1rem;
-            border-radius: 0.375rem;
-            background-color: #2d3748;
-            color: white;
-            text-align: center;
-            min-width: 100px;
-        }
-        .stButton button {
-            min-width: 100px;
-            border-radius: 0.375rem;
-        }
-        .controls-row {
-            margin-bottom: 0.5rem;
-        }
-    </style>
-""", unsafe_allow_html=True)
+
 
 # Initialize session state
 if 'selected_period' not in st.session_state:
