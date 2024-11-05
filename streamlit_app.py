@@ -313,7 +313,7 @@ if selected_table:
                             on_click=lambda: setattr(st.session_state, 'current_page', st.session_state.current_page - 1),
                             key="prev_button")}
                     </div>
-                    <div style="flex: 2; text-align: center; font-size: 18px;">
+                    <div style="flex: 2; text-align: center; font-size: 14px;">
                         Stock {st.session_state.current_page} of {total_pages}
                     </div>
                     <div style="flex: 1; text-align: right;">
