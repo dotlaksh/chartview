@@ -282,7 +282,15 @@ if selected_table:
                 TIME_PERIODS[st.session_state.selected_period],
                 INTERVALS[st.session_state.selected_interval]
             )
-            
+            # Display stock name and today's change
+            row(
+                f"### {stock['stock_name']} ({stock['symbol']})",
+                f"**Current Price:** ${current_price:.2f}",
+                f"**Change:** {change_symbol}{abs(daily_change):.2f}%",
+                alignment="center",
+                use_container_width=True
+            )
+
             # Create chart
             create_chart(chart_data, stock['stock_name'], stock['symbol'], 
                         current_price, volume, daily_change, pivot_points)
