@@ -151,17 +151,11 @@ def load_chart_data(symbol, period, interval):
 
 def create_chart(chart_data, name, symbol, current_price, volume, daily_change, pivot_points):
     if chart_data is not None:
-        # Set default height based on screen size conditionally
-        chart_height = 500 if st.session_state.get('is_mobile', False) else 750
-        chart_width = 350 if st.session_state.get('is_mobile', False) else 800
-        
-        # Initialize chart with set width and height
-        chart = StreamlitChart(width=chart_width, height=chart_height)
-        
-        # Chart settings and configurations
+        chart = StreamlitChart(height=750)
         change_color = '#00ff55' if daily_change >= 0 else '#ed4807'
         change_symbol = '+' if daily_change >= 0 else '-'
         
+        # Chart configuration
         chart.layout(
             background_color='#1E222D',
             text_color='#FFFFFF',
