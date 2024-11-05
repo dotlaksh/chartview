@@ -12,20 +12,21 @@ from requests.exceptions import RequestException
 from streamlit_extras.row import row
 import streamlit.components.v1 as components
 
-# JavaScript for dynamic height adjustment
+# JavaScript for screen width detection and height adjustment
 js_code = """
 <script>
-    function adjustHeight() {
-        let height = window.innerWidth < 768 ? 500 : 750;  // Set height based on screen width
-        document.getElementById('chart-container').style.height = height + 'px';
-    }
-
-    // Adjust height on load and resize
-    window.addEventListener('load', adjustHeight);
-    window.addEventListener('resize', adjustHeight);
+    const sendScreenWidth = () => {
+        const width = window.innerWidth;
+        const height = width < 768 ? 500 : 750;
+        Streamlit.setComponentValue(height);
+    };
+    
+    // Run on load and resize
+    window.addEventListener('load', sendScreenWidth);
+    window.addEventListener('resize', sendScreenWidth);
 </script>
-"""
-
+# Custom Streamlit component to get height based on screen width
+chart_height = components.html(js_code, height=0)
 # Time period and interval mappings
 TIME_PERIODS = {
     '3M' :'3mo',
@@ -166,13 +167,8 @@ def load_chart_data(symbol, period, interval):
 
 def create_chart(chart_data, name, symbol, current_price, volume, daily_change, pivot_points):
     if chart_data is not None:
-        # HTML wrapper for chart
-        components.html(f"""
-        <div id="chart-container" style="width: 100%; height: 750px;"></div>
-        {js_code}
-        """, height=800)  # Height is initially set to ensure container visibility
-
-        chart = StreamlitChart(height=750)  # The chart is loaded in Streamlit with dynamic height
+        # Dynamically set height based on screen width
+        chart = StreamlitChart(height=chart_height)  # Use the value from the JavaScript callback
         change_color = '#00ff55' if daily_change >= 0 else '#ed4807'
         change_symbol = '+' if daily_change >= 0 else '-'
 
