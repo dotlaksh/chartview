@@ -301,29 +301,29 @@ if selected_table:
             create_chart(chart_data, stock['stock_name'], stock['symbol'], 
                         current_price, volume, daily_change, pivot_points)
 
-    # Navigation controls in a single row using a container
-        with st.container():
-            # Use inline CSS to style the layout
-            st.markdown(
-                f"""
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0;">
-                    <div style="flex: 1;">
-                        {st.button("← Previous", 
-                            disabled=(st.session_state.current_page == 1), 
-                            on_click=lambda: setattr(st.session_state, 'current_page', st.session_state.current_page - 1),
-                            key="prev_button")}
+        # Navigation controls in a single row using a container
+            with st.container():
+                # Use inline CSS to style the layout
+                st.markdown(
+                    f"""
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0;">
+                        <div style="flex: 1;">
+                            {st.button("← Previous", 
+                                disabled=(st.session_state.current_page == 1), 
+                                on_click=lambda: setattr(st.session_state, 'current_page', st.session_state.current_page - 1),
+                                key="prev_button")}
+                        </div>
+                        <div style="flex: 2; text-align: center; font-size: 18px;">
+                            Stock {st.session_state.current_page} of {total_pages}
+                        </div>
+                        <div style="flex: 1; text-align: right;">
+                            {st.button("Next →", 
+                                disabled=(st.session_state.current_page == total_pages), 
+                                on_click=lambda: setattr(st.session_state, 'current_page', st.session_state.current_page + 1),
+                                key="next_button")}
+                        </div>
                     </div>
-                    <div style="flex: 2; text-align: center; font-size: 18px;">
-                        Stock {st.session_state.current_page} of {total_pages}
-                    </div>
-                    <div style="flex: 1; text-align: right;">
-                        {st.button("Next →", 
-                            disabled=(st.session_state.current_page == total_pages), 
-                            on_click=lambda: setattr(st.session_state, 'current_page', st.session_state.current_page + 1),
-                            key="next_button")}
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
+                    """,
+                    unsafe_allow_html=True
+                )
 
