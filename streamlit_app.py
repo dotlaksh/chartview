@@ -190,16 +190,19 @@ def create_chart(chart_data, name, symbol, current_price, volume, daily_change, 
     else:
         st.warning("No data available.")
 
-st.set_page_config(layout="centered", page_title="ChartView 2.0", page_icon="📈")
+st.set_page_config(layout="wide", page_title="ChartView 2.0", page_icon="📈")
 
 # Custom CSS for responsive design
 st.markdown("""
     <style>
         .block-container {
             padding-top: 1rem !important;
+        }              
+     @media (min-width: 1200px) {
+        .chart-container {
+            height: 700px !important;
         }
-        
-              
+    }
         .nav-container {
             display: flex;
             justify-content: center;
