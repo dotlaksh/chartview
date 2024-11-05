@@ -10,28 +10,6 @@ import time
 import requests
 from requests.exceptions import RequestException
 from streamlit_extras.row import row
-import streamlit.components.v1 as components
-
-st.set_page_config(layout="wide", page_title="ChartView 2.0", page_icon="📈")
-
-
-# JavaScript for screen width detection and height adjustment
-js_code = """
-<script>
-    const sendScreenWidth = () => {
-        const width = window.innerWidth;
-        const height = width < 768 ? 500 : 750;
-        Streamlit.setComponentValue(height);
-    };
-    
-    // Run on load and resize
-    window.addEventListener('load', sendScreenWidth);
-    window.addEventListener('resize', sendScreenWidth);
-</script>
-"""
-
-# Custom Streamlit component to get height based on screen width
-chart_height = components.html(js_code, height=0)
 
 # Time period and interval mappings
 TIME_PERIODS = {
@@ -173,11 +151,10 @@ def load_chart_data(symbol, period, interval):
 
 def create_chart(chart_data, name, symbol, current_price, volume, daily_change, pivot_points):
     if chart_data is not None:
-        # Dynamically set height based on screen width
-        chart = StreamlitChart(height=chart_height)  # Use the value from the JavaScript callback
+        chart = StreamlitChart(height=750)
         change_color = '#00ff55' if daily_change >= 0 else '#ed4807'
         change_symbol = '+' if daily_change >= 0 else '-'
-
+        
         # Chart configuration
         chart.layout(
             background_color='#1E222D',
@@ -213,6 +190,7 @@ def create_chart(chart_data, name, symbol, current_price, volume, daily_change, 
     else:
         st.warning("No data available.")
 
+st.set_page_config(layout="wide", page_title="ChartView 2.0", page_icon="📈")
 
 
 
