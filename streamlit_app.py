@@ -323,7 +323,7 @@ if selected_table:
                         current_price, volume, daily_change, pivot_points)
 
         # Navigation controls
-        cols = st.columns([1, 0.5, 0.5])
+        cols = st.columns([0.5, 0.5, 1])
         
         with cols[0]:
             st.button(
