@@ -301,30 +301,24 @@ if selected_table:
             create_chart(chart_data, stock['stock_name'], stock['symbol'], 
                         current_price, volume, daily_change, pivot_points)
 
-        # Navigation controls
-        cols = st.columns([0.5, 0.5,0.5, 2])
+        # Navigation controls within a single row using a container
+        with st.container():
+            st.markdown(
+                f"""
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0;">
+                    <button 
+                        style="padding: 8px 16px; font-size: 16px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;"
+                        onclick="window.streamlitRerun()" {'disabled' if st.session_state.current_page == 1 else ''}>← Previous</button>
         
-        with cols[0]:
-            st.button(
-                "← Previous", 
-                disabled=(st.session_state.current_page == 1), 
-                on_click=lambda: setattr(st.session_state, 'current_page', st.session_state.current_page - 1),
-                key="prev_button",
-                use_container_width=True
-            )
+                    <div style="text-align: center; font-size: 18px;">
+                        Stock {st.session_state.current_page} of {total_pages}
+                    </div>
         
-        with cols[2]:
-            st.markdown(f"""
-                <div class="page-info">
-                    Stock {st.session_state.current_page} of {total_pages}
+                    <button 
+                        style="padding: 8px 16px; font-size: 16px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;"
+                        onclick="window.streamlitRerun()" {'disabled' if st.session_state.current_page == total_pages else ''}>Next →</button>
                 </div>
-            """, unsafe_allow_html=True)
-        
-        with cols[1]:
-            st.button(
-                "Next →", 
-                disabled=(st.session_state.current_page == total_pages), 
-                on_click=lambda: setattr(st.session_state, 'current_page', st.session_state.current_page + 1),
-                key="next_button",
-                use_container_width=True
+                """,
+                unsafe_allow_html=True
             )
+
