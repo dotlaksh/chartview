@@ -239,13 +239,14 @@ if 'selected_interval' not in st.session_state:
 if 'search_term' not in st.session_state:
     st.session_state.search_term = ''
 
-# Header with title
-st.markdown("""
-    <h3 style='text-align: center; margin-top: 1rem;'>📊 ChartView 2.0</h3>
-""", unsafe_allow_html=True)
+
 
 # Sidebar
 with st.sidebar:
+    # Header with title
+    st.markdown("""
+        <h3 style='text-align: center; margin-top: 1rem;'>📊 ChartView 2.0</h3>
+    """, unsafe_allow_html=True)
     # Index selector
     tables = get_tables()
     selected_table = st.selectbox(
