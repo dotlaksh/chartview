@@ -282,11 +282,15 @@ if selected_table:
                 TIME_PERIODS[st.session_state.selected_period],
                 INTERVALS[st.session_state.selected_interval]
             )
+            # Determine change symbol and color based on daily change
+            change_symbol = '+' if daily_change >= 0 else '-'
+            change_color = '#00ff55' if daily_change >= 0 else '#ed4807'
+            
             # Display stock name and today's change
             row(
                 f"### {stock['stock_name']} ({stock['symbol']})",
                 f"**Current Price:** ${current_price:.2f}",
-                f"**Change:** {change_symbol}{abs(daily_change):.2f}%",
+                f"**Change:** <span style='color:{change_color}'>{change_symbol}{abs(daily_change):.2f}%</span>",
                 alignment="center",
                 use_container_width=True
             )
