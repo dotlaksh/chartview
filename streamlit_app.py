@@ -286,8 +286,7 @@ if selected_table:
             row(
                 f"### {stock['stock_name']} ({stock['symbol']})",
                 f"**Current Price:** ${current_price:.2f}",
-                f"**Change:** <span style='color:{change_color}'>{change_symbol}{abs(daily_change):.2f}%</span>",
-                use_container_width=True
+                f"**Change:** <span style='color:{change_color}'>{change_symbol}{abs(daily_change):.2f}%</span>"
             )
 
             # Create chart
