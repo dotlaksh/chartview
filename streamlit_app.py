@@ -197,19 +197,9 @@ st.markdown("""
     <style>
         .block-container {
             padding-top: 1rem !important;
-            max-width: 95% !important;
         }
-        .stSelectbox {
-            margin-bottom: 0.5rem;
-        }
-        .chart-container {
-            margin: 1rem 0;
-        }
-        @media (min-width: 1200px) {
-            .chart-container {
-                height: 600px !important;
-            }
-        }
+        
+              
         .nav-container {
             display: flex;
             justify-content: center;
