@@ -12,6 +12,9 @@ from requests.exceptions import RequestException
 from streamlit_extras.row import row
 import streamlit.components.v1 as components
 
+st.set_page_config(layout="wide", page_title="ChartView 2.0", page_icon="📈")
+
+
 # JavaScript for screen width detection and height adjustment
 js_code = """
 <script>
@@ -210,7 +213,6 @@ def create_chart(chart_data, name, symbol, current_price, volume, daily_change, 
     else:
         st.warning("No data available.")
 
-st.set_page_config(layout="wide", page_title="ChartView 2.0", page_icon="📈")
 
 
 
