@@ -222,9 +222,6 @@ st.markdown("""
             min-width: 100px;
             border-radius: 0.375rem;
         }
-        .header-row {
-            margin-bottom: 1rem;
-        }
         .controls-row {
             margin-bottom: 0.5rem;
         }
