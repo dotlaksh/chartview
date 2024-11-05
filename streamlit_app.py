@@ -181,7 +181,7 @@ def create_chart(chart_data, name, symbol, current_price, volume, daily_change, 
         chart.legend(visible=True, font_size=12)
         chart.topbar.textbox(
             'info',
-            f'{name} | {change_symbol}{abs(daily_change):.2f}% | Volume: {formatted_volume}'
+            f'{name} | {change_symbol}{abs(daily_change):.2f}%'
         )
         chart.price_line(label_visible=True, line_visible=True)
         chart.fit()
