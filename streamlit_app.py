@@ -191,7 +191,7 @@ st.set_page_config(layout="centered", page_title="ChartView 2.0", page_icon="ðŸ“
 st.markdown("""
     <style>
         .block-container {
-            padding-top: 1rem !important;
+            padding-top: 2rem !important;
         }
     </style>
     """, unsafe_allow_html=True)
