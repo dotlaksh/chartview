@@ -190,7 +190,7 @@ def create_chart(chart_data, name, symbol, current_price, volume, daily_change, 
     else:
         st.warning("No data available.")
 
-st.set_page_config(layout="wide", page_title="ChartView 2.0", page_icon="📈")
+st.set_page_config(layout="centered", page_title="ChartView 2.0", page_icon="📈")
 
 
 
