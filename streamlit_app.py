@@ -243,8 +243,6 @@ st.markdown("""
 
 # Sidebar
 with st.sidebar:
-    st.markdown("### Controls")
-    
     # Index selector
     tables = get_tables()
     selected_table = st.selectbox(
