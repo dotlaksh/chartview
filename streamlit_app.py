@@ -151,7 +151,7 @@ def load_chart_data(symbol, period, interval):
 
 def create_chart(chart_data, name, symbol, current_price, volume, daily_change, pivot_points):
     if chart_data is not None:
-        chart = StreamlitChart(height=700)  # Increased base height
+        chart = StreamlitChart(height=500)  # Increased base height
         change_color = '#00ff55' if daily_change >= 0 else '#ed4807'
         change_symbol = '+' if daily_change >= 0 else '-'
         
@@ -196,7 +196,7 @@ st.set_page_config(layout="wide", page_title="ChartView 2.0", page_icon="📈")
 st.markdown("""
     <style>
         .block-container {
-            margin-top: 3rem !important;
+            margin-top: 2rem !important;
         }              
      @media (min-width: 1200px) {
         .chart-container {
@@ -242,7 +242,7 @@ if 'search_term' not in st.session_state:
 with st.sidebar:
     # Header with title
     st.markdown("""
-        <h3 style='text-align: center; margin-top: 1rem;'>📊 ChartView 2.0</h3>
+        <h3>📊ChartView 1.0</h3>
     """, unsafe_allow_html=True)
     # Index selector
     tables = get_tables()
