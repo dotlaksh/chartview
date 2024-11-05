@@ -11,6 +11,13 @@ import requests
 from requests.exceptions import RequestException
 from streamlit_extras.row import row
 
+st.markdown("""
+    <style>
+        .block-container {
+            padding-top: 1rem !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
 # Time period and interval mappings
 TIME_PERIODS = {
     '3M' :'3mo',
