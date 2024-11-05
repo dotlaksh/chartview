@@ -25,8 +25,11 @@ js_code = """
     window.addEventListener('load', sendScreenWidth);
     window.addEventListener('resize', sendScreenWidth);
 </script>
+"""
+
 # Custom Streamlit component to get height based on screen width
 chart_height = components.html(js_code, height=0)
+
 # Time period and interval mappings
 TIME_PERIODS = {
     '3M' :'3mo',
