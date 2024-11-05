@@ -194,10 +194,7 @@ st.set_page_config(layout="wide", page_title="ChartView 2.0", page_icon="📈")
 
 # Custom CSS for responsive design
 st.markdown("""
-    <style>
-        .block-container {
-            margin-top: 1rem !important;
-        }              
+    <style>            
      @media (min-width: 1200px) {
         .chart-container {
             height: 700px !important;
