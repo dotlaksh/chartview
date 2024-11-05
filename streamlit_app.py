@@ -179,10 +179,6 @@ def create_chart(chart_data, name, symbol, current_price, volume, daily_change, 
         chart.time_scale(right_offset=5, min_bar_spacing=5)
         chart.grid(vert_enabled=False, horz_enabled=False)
         chart.legend(visible=True, font_size=12)
-        chart.topbar.textbox(
-            'info',
-            f'{name} | {change_symbol}{abs(daily_change):.2f}%'
-        )
         chart.price_line(label_visible=True, line_visible=True)
         chart.fit()
         chart.set(chart_data)
@@ -291,7 +287,6 @@ if selected_table:
                 f"### {stock['stock_name']} ({stock['symbol']})",
                 f"**Current Price:** ${current_price:.2f}",
                 f"**Change:** <span style='color:{change_color}'>{change_symbol}{abs(daily_change):.2f}%</span>",
-                alignment="center",
                 use_container_width=True
             )
 
