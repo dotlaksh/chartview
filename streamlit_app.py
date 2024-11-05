@@ -196,7 +196,7 @@ st.set_page_config(layout="wide", page_title="ChartView 2.0", page_icon="📈")
 st.markdown("""
     <style>
         .block-container {
-            padding-top: 1rem !important;
+            padding-top: 2rem !important;
         }              
      @media (min-width: 1200px) {
         .chart-container {
