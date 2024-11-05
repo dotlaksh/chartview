@@ -323,9 +323,9 @@ if selected_table:
                         current_price, volume, daily_change, pivot_points)
 
         # Navigation controls
-        cols = st.columns([2, 2, 1, 0.5, 0.5])
+        cols = st.columns([1, 0.5, 0.5])
         
-        with cols[3]:
+        with cols[0]:
             st.button(
                 "← Previous", 
                 disabled=(st.session_state.current_page == 1), 
@@ -341,7 +341,7 @@ if selected_table:
                 </div>
             """, unsafe_allow_html=True)
         
-        with cols[4]:
+        with cols[1]:
             st.button(
                 "Next →", 
                 disabled=(st.session_state.current_page == total_pages), 
