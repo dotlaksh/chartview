@@ -151,7 +151,7 @@ def load_chart_data(symbol, period, interval):
 
 def create_chart(chart_data, name, symbol, current_price, volume, daily_change, pivot_points):
     if chart_data is not None:
-        chart = StreamlitChart(height=700)
+        chart = StreamlitChart(height=750)
         change_color = '#00ff55' if daily_change >= 0 else '#ed4807'
         change_symbol = '+' if daily_change >= 0 else '-'
         
