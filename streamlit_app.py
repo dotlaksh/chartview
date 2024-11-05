@@ -282,12 +282,14 @@ if selected_table:
             change_symbol = '+' if daily_change >= 0 else '-'
             change_color = '#00ff55' if daily_change >= 0 else '#ed4807'
             
-            # Display stock name and today's change
-            row(
-                f"### {stock['stock_name']} ({stock['symbol']})",
-                f"**Current Price:** ${current_price:.2f}",
-                f"**Change:** <span style='color:{change_color}'>{change_symbol}{abs(daily_change):.2f}%</span>"
-            )
+            # Display stock name, current price, and today's change
+            st.markdown(f"""
+                <h3 style="text-align:center;">{stock['stock_name']} ({stock['symbol']})</h3>
+                <div style="text-align:center; font-size:18px;">
+                    <b>Current Price:</b> ${current_price:.2f} <br>
+                    <b>Change:</b> <span style="color:{change_color};">{change_symbol}{abs(daily_change):.2f}%</span>
+                </div>
+            """, unsafe_allow_html=True)
 
             # Create chart
             create_chart(chart_data, stock['stock_name'], stock['symbol'], 
